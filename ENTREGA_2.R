@@ -1,12 +1,9 @@
 library(readr)
 library(tidyverse)
-bbdd<- read_delim("data/base-de-datos-ele7 (1).csv", 
-                                    delim = ";", escape_double = FALSE, locale = locale(encoding = "latin1"), 
-                                    trim_ws = TRUE)
-
-
-names(bbdd)
-
+bbdd<-read_delim("data/base-de-datos-ele7 (1).csv", 
+                     delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ",", 
+                                                                         grouping_mark = ".", encoding = "latin1"), 
+                     na = "empty", trim_ws = TRUE)
 
 ####DEPURACIÓN I: SELECCIONO Y CAMBIO NOMBRE DE LAS VARIABLES ESCOGIDAS
 bbdd<-bbdd %>% 
@@ -203,6 +200,8 @@ bbdd<-bbdd %>%
          "as_otro"=D087,
          "as_no"=D088,
          "as_nosabe"=D089)
+str(bbdd)
+
 ##tamaño, ciiu, tipo de propiedad, año, parte de un grupo, sexo gg,
 #edad gg, numero socios x sexo, 
 #directo, contratacion 
@@ -214,7 +213,9 @@ bbdd<-bbdd %>%
 #otras asociacoines, facotres afectan
 
 
-variables<-list(c("ROL_FICTICIO", "TAMANO", "CIIU_FINAL",  "emp_nacional" ,"emp_extranjera",
+variables<-list(c("ROL_FICTICIO", "TAMANO", "CIIU_FINAL",
+                  "emp_nacional" ,
+                  "emp_extranjera",
                   "emp_estatal",
                   "año",
                   "part_grupo_si",
@@ -408,4 +409,72 @@ variables<-list(c("ROL_FICTICIO", "TAMANO", "CIIU_FINAL",  "emp_nacional" ,"emp_
                   "as_nosabe", "FE_TRANSVERSAL" ))
 
 datos_proyecto <- bbdd %>% 
-  select(all_of(unlist(variables)))
+  select(all_of(unlist(variables))) |> 
+  mutate(emp_nacional=as.numeric(emp_nacional))
+
+# hago una tabla del conteo de NAs
+get_na_table <- function(df, vars) {
+  # asegurar que vars sea un vector de caracteres
+  if (is.list(vars)) {
+    vars <- unique(unlist(vars, recursive = TRUE, use.names = FALSE))
+  }
+  if (!is.character(vars)) {
+    stop("`vars` debe ser un vector de caracteres o una lista de caracteres.")
+  }
+  
+  missing_vars <- setdiff(vars, names(df))
+  if (length(missing_vars) > 0) {
+    warning("Estas variables no existen en el data.frame: ", paste(missing_vars, collapse = ", "))
+  }
+  
+  res <- df %>%
+    select(any_of(vars)) %>%
+    summarise(across(everything(), ~ sum(is.na(.)), .names = "{col}")) %>%
+    pivot_longer(cols = everything(), names_to = "variable", values_to = "na_count") %>%
+    mutate(
+      total = nrow(df),
+      pct = na_count / total * 100,
+      non_na = total - na_count
+    ) %>%
+    arrange(desc(na_count))
+  return(res)
+}
+
+
+na_summary <- get_na_table(datos_proyecto, variables)
+print(na_summary)
+
+
+###las variables que son multi las voy a tratar de juntar
+
+
+
+###validar datos que deberia sumar 100
+
+##capital de la empresa
+datos_proyecto<-datos_proyecto |> 
+  mutate(total_capital = emp_nacional + emp_extranjera+emp_estatal,
+         total_participacion=part_grupo_si+part_grupo_no,
+         total_sexogg= gg_sexo_h+gg_sexo_m,
+         total_socios=n_socios_h+n_socio_m-total_socio,
+         total_dir=n_directorio_h+n_directorio_m-total_directorio)
+summary(datos_proyecto$total_capital)##comprobar que sumen 100
+summary(datos_proyecto$total_participacion)##comprobar que no existan valores diferentes a 1
+summary(datos_proyecto$total_sexogg)##comprobar que no existan valores difernetes a 1
+summary(datos_proyecto$total_socios)##no deberia haber valores distinto a 0
+summary(datos_proyecto$total_dir)
+
+ftable(datos_proyecto$n_socios_h,datos_proyecto$sin_socio_h)#aca los 1 no debería tener valor de socio
+ftable(datos_proyecto$n_socio_m,datos_proyecto$sin_socio_m)#aca los 1 no debería tener valor de socio
+ftable(datos_proyecto$n_directorio_h,datos_proyecto$sin_directorio_h)#aca los 1 no debería tener valor de socio
+ftable(datos_proyecto$n_directorio_m,datos_proyecto$sin_directorio_m)#aca los 1 no debería tener valor de socio
+
+
+
+
+participacion_grupo_total <- sum(datos_proyecto$part_grupo_no, na.rm = TRUE) + sum(datos_proyecto$part_grupo_si, na.rm = TRUE)
+total_sexogg<-sum(datos_proyecto$gg_sexo_h, na.rm = TRUE) + sum(datos_proyecto$gg_sexo_m, na.rm = TRUE)
+total_directorio<-sum(datos_proyecto$si_directorio, na.rm = T)+ sum(datos_proyecto$no_directorio, na.rm=T)
+participacion_grupo_total ##tiene que ser igual o menos que el N de la base 6592
+total_sexogg
+total_directorio
