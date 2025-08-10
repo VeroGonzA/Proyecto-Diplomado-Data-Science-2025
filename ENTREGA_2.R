@@ -478,3 +478,123 @@ total_directorio<-sum(datos_proyecto$si_directorio, na.rm = T)+ sum(datos_proyec
 participacion_grupo_total ##tiene que ser igual o menos que el N de la base 6592
 total_sexogg
 total_directorio
+
+
+####Categorizacion variables####
+#####TAMAÑO#####
+datos_proyecto <- datos_proyecto %>%
+  mutate(TAMANO = case_when(
+    TAMANO == 1 ~ "Grande",
+    TAMANO == 2 ~ "Mediana",
+    TAMANO == 3 ~ "Pequeña 2",
+    TAMANO == 4 ~ "Pequeña 1",
+    TAMANO == 5 ~ "Micro",
+    TRUE ~ as.character(TAMANO)
+  ))
+
+table(datos_proyecto$TAMANO)
+
+#####SEXO G.GENERAL#####
+
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    # Detectar inconsistencias/ NA
+    inconsistencia = case_when(
+      gg_sexo_h == 1 & gg_sexo_m == 1 ~ TRUE,
+      gg_sexo_h == 0 & gg_sexo_m == 0 ~ TRUE,
+      is.na(gg_sexo_h) | is.na(gg_sexo_m) ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    
+    # Crear la variable unificada
+    gg_sexo = case_when(
+      gg_sexo_h == 1 & gg_sexo_m == 0 ~ "Hombre",
+      gg_sexo_h == 0 & gg_sexo_m == 1 ~ "Mujer",
+      TRUE ~ NA_character_  # Para casos inconsistentes o NA
+    )
+  )
+table(datos_proyecto$gg_sexo)
+
+#####PARTE DE UN GRUPO#####
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    # Detectar inconsistencias/ NA
+    inconsistencia = case_when(
+      part_grupo_no == 1 & part_grupo_si == 1 ~ TRUE,
+      part_grupo_no == 0 & part_grupo_si == 0 ~ TRUE,
+      is.na(part_grupo_no) | is.na(part_grupo_no) ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    
+    # Crear la variable unificada
+    part_grupo = case_when(
+      part_grupo_no == 1 & part_grupo_si == 0 ~ "No",
+      part_grupo_no == 0 & part_grupo_si == 1 ~ "Si",
+      TRUE ~ NA_character_  # Para casos inconsistentes o NA
+    )
+  )
+table(datos_proyecto$part_grupo)
+
+#####DIRECTORIO#####
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    # Detectar inconsistencias/ NA
+    inconsistencia = case_when(
+      no_directorio == 1 & si_directorio == 1 ~ TRUE,
+      no_directorio == 0 & si_directorio == 0 ~ TRUE,
+      is.na(no_directorio) | is.na(si_directorio) ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    
+    # Crear la variable unificada
+    directorio = case_when(
+     no_directorio == 1 & si_directorio == 0 ~ "No",
+      no_directorio == 0 & si_directorio == 1 ~ "Si",
+      TRUE ~ NA_character_  # Para casos inconsistentes o NA
+    )
+  )
+table(datos_proyecto$directorio)
+
+#####CONTRATACION#####
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    # Detectar inconsistencias/ NA
+    inconsistencia = case_when(
+      no_contratacion == 1 & si_contratacion == 1 ~ TRUE,
+      no_contratacion == 0 & si_contratacion == 0 ~ TRUE,
+      is.na(no_contratacion) | is.na(si_contratacion) ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    
+    # Crear la variable unificada
+    contratacion = case_when(
+      no_contratacion == 1 & si_contratacion == 0 ~ "No",
+      no_contratacion == 0 & si_contratacion == 1 ~ "Si",
+      TRUE ~ NA_character_  # Para casos inconsistentes o NA
+    )
+  )
+table(datos_proyecto$contratacion)
+
+#####FIN DE CONTRATO#####
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    # Detectar inconsistencias/ NA
+    inconsistencia = case_when(
+      no_fin_contrato == 1 & si_fin_contrato == 1 ~ TRUE,
+      no_fin_contrato == 0 & si_fin_contrato == 0 ~ TRUE,
+      is.na(no_fin_contrato) | is.na(si_fin_contrato) ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    
+    # Crear la variable unificada
+    fin_contrato = case_when(
+      no_fin_contrato == 1 & si_fin_contrato == 0 ~ "No",
+      no_fin_contrato == 0 & si_fin_contrato == 1 ~ "Si",
+      TRUE ~ NA_character_  # Para casos inconsistentes o NA
+    )
+  )
+table(datos_proyecto$fin_contrato)
+
+#####ANTIGUEDAD####
+datos_proyecto <- datos_proyecto %>%
+  mutate(ANTIGUEDAD = abs(2022 - año))
