@@ -628,6 +628,32 @@ datos_proyecto <- datos_proyecto %>%
   )
 table(datos_proyecto$nivel_competencia)
 
+#####9. PREDOMINIO TIPO DE EMPRESA####
+datos_proyecto <- datos_proyecto %>%
+  rowwise() %>%
+  mutate(
+    max_val = max(c(emp_nacional, emp_extranjera, emp_estatal), na.rm = TRUE),
+    emp_tipo = case_when(
+      sum(c(emp_nacional, emp_extranjera, emp_estatal) == max_val, na.rm = TRUE) > 1 ~ "empate",
+      emp_nacional == max_val ~ "nacional",
+      emp_extranjera == max_val ~ "extranjera",
+      emp_estatal == max_val ~ "estatal",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  ungroup()
+
+table(datos_proyecto$emp_tipo)
 
 #### ESTADISTICOS DESCRIPTIVOS ####
-#TENGO EL CODIGO PERO AUN NO LO ACTUALIZO ACA, PERDON!#
+##### 1. TIPO DE EMPRESAS NAC, EXT o EST ####
+
+datos_proyecto %>%
+  count(emp_tipo) %>%
+  mutate(
+    porcentaje = round((n / sum(n)) * 100, 1)
+  ) %>%
+  rename(Categoria = emp_tipo, Frecuencia = n)
+
+##### 2. PROMEDIO ANTIGUEDAD #####
+mean(datos_proyecto$ANTIGUEDAD)
