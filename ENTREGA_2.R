@@ -1,9 +1,10 @@
 library(readr)
 library(tidyverse)
-bbdd<-read_delim("data/base-de-datos-ele7 (1).csv", 
-                     delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ",", 
-                                                                         grouping_mark = ".", encoding = "latin1"), 
-                     na = "empty", trim_ws = TRUE)
+library(dplyr)
+bbdd<-read_delim("data/base-de-datos-ele7.csv", 
+                 delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ",", 
+                                                                     grouping_mark = ".", encoding = "latin1"), 
+                 na = "empty", trim_ws = TRUE)
 
 ####DEPURACIÓN I: SELECCIONO Y CAMBIO NOMBRE DE LAS VARIABLES ESCOGIDAS
 bbdd<-bbdd %>% 
@@ -480,8 +481,8 @@ total_sexogg
 total_directorio
 
 
-####Categorizacion variables####
-#####TAMAÑO#####
+####CATEGORIZACION VARIABLES####
+##### 1. TAMAÑO#####
 datos_proyecto <- datos_proyecto %>%
   mutate(TAMANO = case_when(
     TAMANO == 1 ~ "Grande",
@@ -494,7 +495,7 @@ datos_proyecto <- datos_proyecto %>%
 
 table(datos_proyecto$TAMANO)
 
-#####SEXO G.GENERAL#####
+#####2. SEXO G.GENERAL#####
 
 datos_proyecto <- datos_proyecto %>%
   mutate(
@@ -515,7 +516,7 @@ datos_proyecto <- datos_proyecto %>%
   )
 table(datos_proyecto$gg_sexo)
 
-#####PARTE DE UN GRUPO#####
+#####3. PARTE DE UN GRUPO#####
 datos_proyecto <- datos_proyecto %>%
   mutate(
     # Detectar inconsistencias/ NA
@@ -535,7 +536,7 @@ datos_proyecto <- datos_proyecto %>%
   )
 table(datos_proyecto$part_grupo)
 
-#####DIRECTORIO#####
+#####4. DIRECTORIO#####
 datos_proyecto <- datos_proyecto %>%
   mutate(
     # Detectar inconsistencias/ NA
@@ -555,7 +556,7 @@ datos_proyecto <- datos_proyecto %>%
   )
 table(datos_proyecto$directorio)
 
-#####CONTRATACION#####
+#####5. CONTRATACION#####
 datos_proyecto <- datos_proyecto %>%
   mutate(
     # Detectar inconsistencias/ NA
@@ -575,7 +576,7 @@ datos_proyecto <- datos_proyecto %>%
   )
 table(datos_proyecto$contratacion)
 
-#####FIN DE CONTRATO#####
+#####6. FIN DE CONTRATO#####
 datos_proyecto <- datos_proyecto %>%
   mutate(
     # Detectar inconsistencias/ NA
@@ -595,11 +596,11 @@ datos_proyecto <- datos_proyecto %>%
   )
 table(datos_proyecto$fin_contrato)
 
-#####ANTIGUEDAD####
+#####7. ANTIGUEDAD####
 datos_proyecto <- datos_proyecto %>%
   mutate(ANTIGUEDAD = abs(2022 - año))
 
-#####NIVEL DE COMPETENCIA####
+#####8. NIVEL DE COMPETENCIA####
 datos_proyecto <- datos_proyecto %>%
   mutate(
     nivel_competencia = case_when(
@@ -626,3 +627,7 @@ datos_proyecto <- datos_proyecto %>%
     )
   )
 table(datos_proyecto$nivel_competencia)
+
+
+#### ESTADISTICOS DESCRIPTIVOS ####
+#TENGO EL CODIGO PERO AUN NO LO ACTUALIZO ACA, PERDON!#
