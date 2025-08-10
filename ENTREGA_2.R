@@ -598,3 +598,31 @@ table(datos_proyecto$fin_contrato)
 #####ANTIGUEDAD####
 datos_proyecto <- datos_proyecto %>%
   mutate(ANTIGUEDAD = abs(2022 - año))
+
+#####NIVEL DE COMPETENCIA####
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    nivel_competencia = case_when(
+      comp_1 == 1 ~ "1",
+      comp_2 == 1 ~ "2",
+      comp_3 == 1 ~ "3",
+      comp_4 == 1 ~ "4",
+      comp_5 == 1 ~ "5",
+      TRUE ~ NA_character_  # Para casos donde ninguna tiene 1
+    )
+  )
+
+datos_proyecto <- datos_proyecto %>%
+  mutate(
+    suma_comp = comp_1 + comp_2 + comp_3 + comp_4 + comp_5,
+    nivel_competencia = case_when(
+      suma_comp == 1 & comp_1 == 1 ~ "1",
+      suma_comp == 1 & comp_2 == 1 ~ "2",
+      suma_comp == 1 & comp_3 == 1 ~ "3",
+      suma_comp == 1 & comp_4 == 1 ~ "4",
+      suma_comp == 1 & comp_5 == 1 ~ "5",
+      suma_comp > 1 ~ "Error: múltiples competencias",
+      TRUE ~ NA_character_
+    )
+  )
+table(datos_proyecto$nivel_competencia)
