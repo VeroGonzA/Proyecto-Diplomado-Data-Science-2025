@@ -1,7 +1,7 @@
 library(readr)
 library(tidyverse)
 library(dplyr)
-bbdd<-read_delim("data/base-de-datos-ele7.csv", 
+bbdd<-read_delim("data/base-de-datos-ele7 (1).csv", 
                  delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ",", 
                                                                      grouping_mark = ".", encoding = "latin1"), 
                  na = "empty", trim_ws = TRUE)
