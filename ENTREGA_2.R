@@ -657,3 +657,13 @@ datos_proyecto %>%
 
 ##### 2. PROMEDIO ANTIGUEDAD #####
 mean(datos_proyecto$ANTIGUEDAD)
+
+##### 3. ACTIVIDAD ECONOMICA x TAMAÑO ####
+actividad_tamaño <- addmargins(table(datos_proyecto$CIIU_FINAL, 
+                                     datos_proyecto$TAMANO))
+print(actividad_tamaño)
+
+#Identificar que es cada código
+bbdd %>%
+  group_by(CIIU_FINAL) %>%
+  summarise(glosa_unica = paste(unique(GLOSA_CIIU), collapse = ", "))
