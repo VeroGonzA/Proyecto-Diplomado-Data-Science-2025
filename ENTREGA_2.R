@@ -667,3 +667,21 @@ print(actividad_tamaño)
 bbdd %>%
   group_by(CIIU_FINAL) %>%
   summarise(glosa_unica = paste(unique(GLOSA_CIIU), collapse = ", "))
+
+##### 4. DISTRIBUCIÓN GENERO X CIIU ####
+
+
+##### X. DISTRIBUCION EDAD GG X GENERO #####
+boxplot_gg_edad <- ggplot(subset(datos_proyecto, !is.na(gg_sexo)), aes(x = gg_sexo, y = gg_edad, fill = gg_sexo)) +
+  geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
+  scale_fill_manual(values = c("#00838F", "#996CA9")) +
+  labs(
+    title = "Comparación de edad según sexo del Gerente General",
+    x = NULL,
+    y = "Edad",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+boxplot_gg_edad
