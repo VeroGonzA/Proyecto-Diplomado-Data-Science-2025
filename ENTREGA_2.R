@@ -670,11 +670,60 @@ bbdd %>%
 
 ##### 4. DISTRIBUCIÓN GENERO X CIIU ####
 
+##### X. DISTRIBUCION HOMBRE VS MUJERES ####
+#Dotación de mujeres reportadas
+sum(datos_proyecto$total_ocupado_m, na.rm = T)
+#% Mujeres > 3424827/9395874*100 > 36.5
+#Dotacion de hombres reportadas
+sum(datos_proyecto$total_ocupado_h, na.rm = T)
+#% Hombres > 5971047/9395874*100 > 63.5
+
+##### X. DISTRIBUCION SEXO X CIIU #####
+library(ggplot2)
+
+#1: Agrupar y resumir los datos
+tabla_cruce <- datos_proyecto %>%
+  group_by(CIIU_FINAL) %>%
+  summarise(
+    total_ocupado_m = sum(total_ocupado_m, na.rm = TRUE),
+    total_ocupado_h = sum(total_ocupado_h, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+#2: Transformar a formato largo
+tabla_larga <- tabla_cruce %>%
+  pivot_longer(cols = c(total_ocupado_m, total_ocupado_h),
+               names_to = "sexo",
+               values_to = "total") %>%
+  group_by(CIIU_FINAL) %>%
+  mutate(porcentaje = round(total / sum(total) * 100, 1)) %>%
+  ungroup()
+
+#3: Etiquetas más amigables
+tabla_larga$sexo <- recode(tabla_larga$sexo,
+                           "total_ocupado_m" = "Mujeres",
+                           "total_ocupado_h" = "Hombres")
+
+#4: Crear el gráfico
+ggplot(tabla_larga, aes(x = CIIU_FINAL, y = porcentaje, fill = sexo)) +
+  geom_bar(stat = "identity", position = "stack") +
+  geom_text(aes(label = paste0(porcentaje, "%")),
+            position = position_stack(vjust = 0.5),
+            color = "white", size = 3.5) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 10)) +
+  scale_fill_manual(values = c("Mujeres" = "#996CA9", "Hombres" = "#56B4E9")) +  # Colores personalizados
+  labs(
+    title = "Distribución porcentual de mujeres y hombres por Actividad Económica",
+    x = "Actividad Económica",
+    y = "Porcentaje",
+    fill = "Sexo"
+  ) +
+  theme_minimal()
 
 ##### X. DISTRIBUCION EDAD GG X GENERO #####
 boxplot_gg_edad <- ggplot(subset(datos_proyecto, !is.na(gg_sexo)), aes(x = gg_sexo, y = gg_edad, fill = gg_sexo)) +
   geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
-  scale_fill_manual(values = c("#00838F", "#996CA9")) +
+  scale_fill_manual(values = c("#56B4E9", "#996CA9")) +
   labs(
     title = "Comparación de edad según sexo del Gerente General",
     x = NULL,
