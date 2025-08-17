@@ -66,7 +66,7 @@ bbdd<-bbdd %>%
          "rem_admin_m"=I173,
          "rem_venta_m"=I174,
          "rem_agro_m"=I175,
-         "rem_op_h_m"=I176,
+         "rem_op_m"=I176,
          "rem_noesp_m"=I177,
          "rem_total_m"=I178,
          #ver si incluimos lo no imponible
@@ -268,12 +268,12 @@ variables<-list(c("ROL_FICTICIO", "TAMANO", "CIIU_FINAL",
                   "rem_noesp_h",
                   "rem_total_h",
                   "rem_directivo_m",
-                  "rem_profesional_h",
+                  "rem_profesional_m",
                   "rem_tecnico_m",
                   "rem_admin_m",
                   "rem_venta_m",
                   "rem_agro_m",
-                  "rem_op_h_m",
+                  "rem_op_m",
                   "rem_noesp_m",
                   "rem_total_m",
                   #ver si incluimo
@@ -413,37 +413,81 @@ datos_proyecto <- bbdd %>%
   select(all_of(unlist(variables))) |> 
   mutate(emp_nacional=as.numeric(emp_nacional))
 
-# hago una tabla del conteo de NAs
-get_na_table <- function(df, vars) {
-  # asegurar que vars sea un vector de caracteres
-  if (is.list(vars)) {
-    vars <- unique(unlist(vars, recursive = TRUE, use.names = FALSE))
-  }
-  if (!is.character(vars)) {
-    stop("`vars` debe ser un vector de caracteres o una lista de caracteres.")
-  }
-  
-  missing_vars <- setdiff(vars, names(df))
-  if (length(missing_vars) > 0) {
-    warning("Estas variables no existen en el data.frame: ", paste(missing_vars, collapse = ", "))
-  }
-  
-  res <- df %>%
-    select(any_of(vars)) %>%
-    summarise(across(everything(), ~ sum(is.na(.)), .names = "{col}")) %>%
-    pivot_longer(cols = everything(), names_to = "variable", values_to = "na_count") %>%
-    mutate(
-      total = nrow(df),
-      pct = na_count / total * 100,
-      non_na = total - na_count
-    ) %>%
-    arrange(desc(na_count))
-  return(res)
-}
+
+###llamo a la funcion para hacer la tabla
+source("ftabla_resumen.R")
 
 
-na_summary <- get_na_table(datos_proyecto, variables)
-print(na_summary)
+##VAriables que estamos usando (actualizar)
+
+vars<-list(c("CIIU_FINAL", "TAMANO","gg_edad", "gg_sexo_h", "gg_sexo_m", "part_grupo_no", "part_grupo_si",
+             "no_directorio", "si_directorio", "no_contratacion", "si_contratacion",
+             "no_fin_contrato", "si_fin_contrato", "año",
+             "comp_1", "comp_2", "comp_3", "comp_4", "comp_5",
+             "emp_nacional", "emp_extranjera", "emp_estatal", "total_ocupado_m",
+             "total_ocupado_h", "n_directorio_h",
+             "n_directorio_m",
+             "sin_directorio_h",
+             "sin_directorio_m"))
+
+diccionario <- tibble::tibble(
+  variable = c("CIIU_FINAL", "TAMANO","gg_edad", "gg_sexo_h", "gg_sexo_m", "part_grupo_no", "part_grupo_si",
+               "no_directorio", "si_directorio", "no_contratacion", "si_contratacion",
+               "no_fin_contrato", "si_fin_contrato", "año",
+               "comp_1", "comp_2", "comp_3", "comp_4", "comp_5",
+               "emp_nacional", "emp_extranjera", "emp_estatal","total_ocupado_m",
+               "total_ocupado_h","n_directorio_h",
+               "n_directorio_m",
+               "sin_directorio_h",
+               "sin_directorio_m"),
+  Nombre = c(
+    "Clasificador Internacional Industrial Uniforme (CIIU)",
+    "Tamaño de la empresa",
+    "Edad gerente general",
+    "Sexo Gerente General = Hombre",
+    "Sexo Gerente General = Mujer",
+    "Empresa no es parte de un grupo",
+    "Empresa si es parte de un grupo",
+    "No tiene directorio",
+    "Si tiene directorio",
+    "No tuvo nuevas contrataciones",
+    "Si tuvo nuevas contrataciones",
+    "No finalizó contrataciones",
+    "Si finalizó contrataciones",
+    "Año de fundación",
+    'Cantidad de competencia = "1 Baja"',
+    'Cantidad de competencia = "2"',
+    'Cantidad de competencia = "3"',
+    'Cantidad de competencia = "4"',
+    'Cantidad de competencia = "5 Elevada"',
+    "Porcentaje de propiedad nacional",
+    "Porcentaje de propiedad extranjera",
+    "Porcentaje de propiedad estatal",
+    "Total de mujeres ocupadas en la empresa",
+    "Total de hombres ocupados en la empresa", 
+    "Número de directores",
+    "Numero de directoras",
+    "Empresa sin directores",
+    "Empresa sin directoras"
+  )
+)
+
+
+
+na_summary_todas <- get_na_table(datos_proyecto, variables)
+na_summary_actual <- get_na_table(datos_proyecto, vars)
+print(na_summary_actual)
+
+names(na_summary_actual)=c("Variable", "Valores Perdidos (NA)", "Valor Mínimo", "Valor Máximo", "Media", "Mediana", "Moda", "N","%NA", "N Válido" )
+na_summary_actual=na_summary_actual |> 
+  full_join(diccionario, by=c("Variable"="variable")) |> 
+  select("Nombre", "N", "N Válido", "Valores Perdidos (NA)", "%NA", "Valor Mínimo", "Valor Máximo", "Media", "Mediana", "Moda") 
+
+
+
+
+print(na_summary_actual)
+
 
 
 ###las variables que son multi las voy a tratar de juntar
@@ -453,33 +497,33 @@ print(na_summary)
 ###validar datos que deberia sumar 100
 
 ##capital de la empresa
-datos_proyecto<-datos_proyecto |> 
-  mutate(total_capital = emp_nacional + emp_extranjera+emp_estatal,
-         total_participacion=part_grupo_si+part_grupo_no,
-         total_sexogg= gg_sexo_h+gg_sexo_m,
-         total_socios=n_socios_h+n_socio_m-total_socio,
-         total_dir=n_directorio_h+n_directorio_m-total_directorio)
-summary(datos_proyecto$total_capital)##comprobar que sumen 100
-summary(datos_proyecto$total_participacion)##comprobar que no existan valores diferentes a 1
-summary(datos_proyecto$total_sexogg)##comprobar que no existan valores difernetes a 1
-summary(datos_proyecto$total_socios)##no deberia haber valores distinto a 0
-summary(datos_proyecto$total_dir)
-
-ftable(datos_proyecto$n_socios_h,datos_proyecto$sin_socio_h)#aca los 1 no debería tener valor de socio
-ftable(datos_proyecto$n_socio_m,datos_proyecto$sin_socio_m)#aca los 1 no debería tener valor de socio
-ftable(datos_proyecto$n_directorio_h,datos_proyecto$sin_directorio_h)#aca los 1 no debería tener valor de socio
-ftable(datos_proyecto$n_directorio_m,datos_proyecto$sin_directorio_m)#aca los 1 no debería tener valor de socio
-
-
-
-
-participacion_grupo_total <- sum(datos_proyecto$part_grupo_no, na.rm = TRUE) + sum(datos_proyecto$part_grupo_si, na.rm = TRUE)
-total_sexogg<-sum(datos_proyecto$gg_sexo_h, na.rm = TRUE) + sum(datos_proyecto$gg_sexo_m, na.rm = TRUE)
-total_directorio<-sum(datos_proyecto$si_directorio, na.rm = T)+ sum(datos_proyecto$no_directorio, na.rm=T)
-participacion_grupo_total ##tiene que ser igual o menos que el N de la base 6592
-total_sexogg
-total_directorio
-
+#datos_proyecto<-datos_proyecto |> 
+#  mutate(total_capital = emp_nacional + emp_extranjera+emp_estatal,
+#         total_participacion=part_grupo_si+part_grupo_no,
+#         total_sexogg= gg_sexo_h+gg_sexo_m,
+#         total_socios=n_socios_h+n_socio_m-total_socio,
+#         total_dir=n_directorio_h+n_directorio_m-total_directorio)
+#summary(datos_proyecto$total_capital)##comprobar que sumen 100
+#summary(datos_proyecto$total_participacion)##comprobar que no existan valores diferentes a 1
+#summary(datos_proyecto$total_sexogg)##comprobar que no existan valores difernetes a 1
+#summary(datos_proyecto$total_socios)##no deberia haber valores distinto a 0
+#summary(datos_proyecto$total_dir)
+#
+#ftable(datos_proyecto$n_socios_h,datos_proyecto$sin_socio_h)#aca los 1 no debería tener valor de socio
+#ftable(datos_proyecto$n_socio_m,datos_proyecto$sin_socio_m)#aca los 1 no debería tener valor de socio
+#ftable(datos_proyecto$n_directorio_h,datos_proyecto$sin_directorio_h)#aca los 1 no debería tener valor de socio
+#ftable(datos_proyecto$n_directorio_m,datos_proyecto$sin_directorio_m)#aca los 1 no debería tener valor de socio
+#
+#
+#
+#
+#participacion_grupo_total <- sum(datos_proyecto$part_grupo_no, na.rm = TRUE) + sum(datos_proyecto$part_grupo_si, na.rm = TRUE)
+#total_sexogg<-sum(datos_proyecto$gg_sexo_h, na.rm = TRUE) + sum(datos_proyecto$gg_sexo_m, na.rm = TRUE)
+#total_directorio<-sum(datos_proyecto$si_directorio, na.rm = T)+ sum(datos_proyecto$no_directorio, na.rm=T)
+#participacion_grupo_total ##tiene que ser igual o menos que el N de la base 6592
+#total_sexogg
+#total_directorio
+#
 
 ####CATEGORIZACION VARIABLES####
 ##### 1. TAMAÑO#####
@@ -645,6 +689,78 @@ datos_proyecto <- datos_proyecto %>%
 
 table(datos_proyecto$emp_tipo)
 
+
+####10. NÚMERO DE DIRECTORES SEGÚN SEXO
+
+datos_proyecto<-datos_proyecto |> 
+  mutate(
+    pct_directoras=n_directorio_m/(n_directorio_h+n_directorio_m)
+  )
+
+table(datos_proyecto$pct_directoras)
+
+##se hace la tabla resumen pero de estas nuevas variables
+
+####nuevas variables
+
+nuevas_vars<-list(c("TAMANO",
+                    "gg_sexo",
+                    "part_grupo",
+                    "directorio",
+                    "contratacion",
+                    "fin_contrato",
+                    "ANTIGUEDAD",
+                    "nivel_competencia",
+                    "emp_tipo",
+                    "pct_directoras"))
+ diccionario<- tibble::tibble(
+     variable = c("TAMANO",
+                  "gg_sexo",
+                  "part_grupo",
+                  "directorio",
+                  "contratacion",
+                  "fin_contrato",
+                  "ANTIGUEDAD",
+                  "nivel_competencia",
+                  "emp_tipo",
+                  "pct_directoras"),
+     Nombre = c("Tamaño de la empresa", "Sexo Gerente/a General",
+                "Participación en grupo de empresas", "Directorio", 
+                "Nuevas Contrataciones en el período", "Finalización de contrataciones en el período",
+                "Antiguedad de la empresa (en años)", "Evaluación del nivel de competencia",
+                "Tipo de empresa", "Porcentaje de Directoras"))
+     
+   
+ 
+ 
+nuevas_na_summary<-get_na_table(datos_proyecto, nuevas_vars)
+
+print(nuevas_na_summary)
+
+names(nuevas_na_summary)=c("Variable", "Valores Perdidos (NA)", "Valor Mínimo", "Valor Máximo", "Media", "Mediana", "Moda", "N","%NA", "N Válido" )
+nuevas_na_summary=nuevas_na_summary |> 
+  full_join(diccionario, by=c("Variable"="variable")) |> 
+  select("Nombre", "N", "N Válido", "Valores Perdidos (NA)", "%NA", "Valor Mínimo", "Valor Máximo", "Media", "Mediana", "Moda") 
+
+print(nuevas_na_summary)
+
+
+
+
+
+#install.packages("writexl")
+library(writexl)
+write_xlsx(
+  list(
+    "Resumen_actual" = na_summary_actual,
+    "Resumen_nuevas" = nuevas_na_summary
+  ),
+  path = "Resumen_vars.xlsx"
+)
+
+
+
+
 #### ESTADISTICOS DESCRIPTIVOS ####
 ##### 1. TIPO DE EMPRESAS NAC, EXT o EST ####
 
@@ -705,7 +821,7 @@ tabla_larga$sexo <- recode(tabla_larga$sexo,
                            "total_ocupado_h" = "Hombres")
 
 #4: Crear el gráfico
-ggplot(tabla_larga, aes(x = CIIU_FINAL, y = porcentaje, fill = sexo)) +
+g_gg_ciiu<-ggplot(tabla_larga, aes(x = CIIU_FINAL, y = porcentaje, fill = sexo)) +
   geom_bar(stat = "identity", position = "stack") +
   geom_text(aes(label = paste0(porcentaje, "%")),
             position = position_stack(vjust = 0.5),
@@ -720,6 +836,7 @@ ggplot(tabla_larga, aes(x = CIIU_FINAL, y = porcentaje, fill = sexo)) +
   ) +
   theme_minimal()
 
+ggsave("grafico_1.png", g_gg_ciiu, width = 8, height = 6, dpi = 300)
 ##### X. DISTRIBUCION EDAD GG X GENERO #####
 boxplot_gg_edad <- ggplot(subset(datos_proyecto, !is.na(gg_sexo)), aes(x = gg_sexo, y = gg_edad, fill = gg_sexo)) +
   geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
@@ -734,3 +851,6 @@ boxplot_gg_edad <- ggplot(subset(datos_proyecto, !is.na(gg_sexo)), aes(x = gg_se
   theme(legend.position = "none")
 
 boxplot_gg_edad
+
+ggsave("grafico_2.png", boxplot_gg_edad, width = 8, height = 6, dpi = 300)
+
