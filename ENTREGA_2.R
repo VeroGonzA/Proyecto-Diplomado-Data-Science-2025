@@ -854,3 +854,5 @@ boxplot_gg_edad
 
 ggsave("grafico_2.png", boxplot_gg_edad, width = 8, height = 6, dpi = 300)
 
+
+
