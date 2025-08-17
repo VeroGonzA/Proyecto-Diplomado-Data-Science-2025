@@ -593,7 +593,7 @@ datos_proyecto <- datos_proyecto %>%
     
     # Crear la variable unificada
     directorio = case_when(
-     no_directorio == 1 & si_directorio == 0 ~ "No",
+      no_directorio == 1 & si_directorio == 0 ~ "No",
       no_directorio == 0 & si_directorio == 1 ~ "Si",
       TRUE ~ NA_character_  # Para casos inconsistentes o NA
     )
@@ -690,7 +690,7 @@ datos_proyecto <- datos_proyecto %>%
 table(datos_proyecto$emp_tipo)
 
 
-####10. NÚMERO DE DIRECTORES SEGÚN SEXO
+##### 10. NÚMERO DE DIRECTORES SEGÚN SEXO ####
 
 datos_proyecto<-datos_proyecto |> 
   mutate(
@@ -713,26 +713,26 @@ nuevas_vars<-list(c("TAMANO",
                     "nivel_competencia",
                     "emp_tipo",
                     "pct_directoras"))
- diccionario<- tibble::tibble(
-     variable = c("TAMANO",
-                  "gg_sexo",
-                  "part_grupo",
-                  "directorio",
-                  "contratacion",
-                  "fin_contrato",
-                  "ANTIGUEDAD",
-                  "nivel_competencia",
-                  "emp_tipo",
-                  "pct_directoras"),
-     Nombre = c("Tamaño de la empresa", "Sexo Gerente/a General",
-                "Participación en grupo de empresas", "Directorio", 
-                "Nuevas Contrataciones en el período", "Finalización de contrataciones en el período",
-                "Antiguedad de la empresa (en años)", "Evaluación del nivel de competencia",
-                "Tipo de empresa", "Porcentaje de Directoras"))
-     
-   
- 
- 
+diccionario<- tibble::tibble(
+  variable = c("TAMANO",
+               "gg_sexo",
+               "part_grupo",
+               "directorio",
+               "contratacion",
+               "fin_contrato",
+               "ANTIGUEDAD",
+               "nivel_competencia",
+               "emp_tipo",
+               "pct_directoras"),
+  Nombre = c("Tamaño de la empresa", "Sexo Gerente/a General",
+             "Participación en grupo de empresas", "Directorio", 
+             "Nuevas Contrataciones en el período", "Finalización de contrataciones en el período",
+             "Antiguedad de la empresa (en años)", "Evaluación del nivel de competencia",
+             "Tipo de empresa", "Porcentaje de Directoras"))
+
+
+
+
 nuevas_na_summary<-get_na_table(datos_proyecto, nuevas_vars)
 
 print(nuevas_na_summary)
@@ -746,8 +746,6 @@ print(nuevas_na_summary)
 
 
 
-
-
 #install.packages("writexl")
 library(writexl)
 write_xlsx(
@@ -757,9 +755,6 @@ write_xlsx(
   ),
   path = "Resumen_vars.xlsx"
 )
-
-
-
 
 #### ESTADISTICOS DESCRIPTIVOS ####
 ##### 1. TIPO DE EMPRESAS NAC, EXT o EST ####
@@ -774,6 +769,14 @@ datos_proyecto %>%
 ##### 2. PROMEDIO ANTIGUEDAD #####
 mean(datos_proyecto$ANTIGUEDAD)
 
+#ANTIGUEDAD POR TAMAÑO
+datos_proyecto %>%
+  group_by(TAMANO) %>%
+  summarise(
+    antiguedad_promedio = mean(ANTIGUEDAD, na.rm = TRUE),
+    desviacion_estandar = sd(ANTIGUEDAD, na.rm = TRUE)
+  )
+
 ##### 3. ACTIVIDAD ECONOMICA x TAMAÑO ####
 actividad_tamaño <- addmargins(table(datos_proyecto$CIIU_FINAL, 
                                      datos_proyecto$TAMANO))
@@ -784,9 +787,7 @@ bbdd %>%
   group_by(CIIU_FINAL) %>%
   summarise(glosa_unica = paste(unique(GLOSA_CIIU), collapse = ", "))
 
-##### 4. DISTRIBUCIÓN GENERO X CIIU ####
-
-##### X. DISTRIBUCION HOMBRE VS MUJERES ####
+##### 4. DISTRIBUCION HOMBRE VS MUJERES ####
 #Dotación de mujeres reportadas
 sum(datos_proyecto$total_ocupado_m, na.rm = T)
 #% Mujeres > 3424827/9395874*100 > 36.5
@@ -794,7 +795,7 @@ sum(datos_proyecto$total_ocupado_m, na.rm = T)
 sum(datos_proyecto$total_ocupado_h, na.rm = T)
 #% Hombres > 5971047/9395874*100 > 63.5
 
-##### X. DISTRIBUCION SEXO X CIIU #####
+##### 5. DISTRIBUCION SEXO X CIIU #####
 library(ggplot2)
 
 #1: Agrupar y resumir los datos
@@ -837,7 +838,8 @@ g_gg_ciiu<-ggplot(tabla_larga, aes(x = CIIU_FINAL, y = porcentaje, fill = sexo))
   theme_minimal()
 
 ggsave("grafico_1.png", g_gg_ciiu, width = 8, height = 6, dpi = 300)
-##### X. DISTRIBUCION EDAD GG X GENERO #####
+
+##### 6. DISTRIBUCION EDAD GG X GENERO #####
 boxplot_gg_edad <- ggplot(subset(datos_proyecto, !is.na(gg_sexo)), aes(x = gg_sexo, y = gg_edad, fill = gg_sexo)) +
   geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
   scale_fill_manual(values = c("#56B4E9", "#996CA9")) +
@@ -854,5 +856,38 @@ boxplot_gg_edad
 
 ggsave("grafico_2.png", boxplot_gg_edad, width = 8, height = 6, dpi = 300)
 
+#Edad promedio por sexo de gerente general + sd
 
+table(datos_proyecto$gg_sexo)
+#Total 4.986
 
+datos_proyecto %>%
+  group_by(gg_sexo) %>%
+  summarise(
+    edad_promedio = mean(gg_edad, na.rm = TRUE),
+    desviacion_estandar = sd(gg_edad, na.rm = TRUE)
+  )
+
+# Información sobre cuartiles
+datos_proyecto %>%
+  group_by(gg_sexo) %>%
+  summarise(
+    Q1 = quantile(gg_edad, 0.25, na.rm = TRUE),
+    Q2 = quantile(gg_edad, 0.50, na.rm = TRUE),
+    Q3 = quantile(gg_edad, 0.75, na.rm = TRUE)
+  )
+
+# Función para detectar outliers usando el criterio de Tukey
+contar_outliers <- function(x) {
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  lower <- q1 - 1.5 * iqr
+  upper <- q3 + 1.5 * iqr
+  sum(x < lower | x > upper, na.rm = TRUE)
+}
+
+# Aplicar por grupo
+datos_proyecto %>%
+  group_by(gg_sexo) %>%
+  summarise(outliers = contar_outliers(gg_edad))
