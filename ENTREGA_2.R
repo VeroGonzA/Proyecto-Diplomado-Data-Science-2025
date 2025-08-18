@@ -428,7 +428,25 @@ vars<-list(c("CIIU_FINAL", "TAMANO","gg_edad", "gg_sexo_h", "gg_sexo_m", "part_g
              "total_ocupado_h", "n_directorio_h",
              "n_directorio_m",
              "sin_directorio_h",
-             "sin_directorio_m"))
+             "sin_directorio_m",
+             "rem_directivo_h",
+             "rem_profesional_h",
+             "rem_tecnico_h",
+             "rem_admin_h",
+             "rem_venta_h",
+             "rem_agro_h",
+             "rem_op_h",
+             "rem_noesp_h",
+             "rem_total_h",
+             "rem_directivo_m",
+             "rem_profesional_m",
+             "rem_tecnico_m",
+             "rem_admin_m",
+             "rem_venta_m",
+             "rem_agro_m",
+             "rem_op_m",
+             "rem_noesp_m",
+             "rem_total_m"))
 
 diccionario <- tibble::tibble(
   variable = c("CIIU_FINAL", "TAMANO","gg_edad", "gg_sexo_h", "gg_sexo_m", "part_grupo_no", "part_grupo_si",
@@ -439,7 +457,25 @@ diccionario <- tibble::tibble(
                "total_ocupado_h","n_directorio_h",
                "n_directorio_m",
                "sin_directorio_h",
-               "sin_directorio_m"),
+               "sin_directorio_m",
+               "rem_directivo_h",
+               "rem_profesional_h",
+               "rem_tecnico_h",
+               "rem_admin_h",
+               "rem_venta_h",
+               "rem_agro_h",
+               "rem_op_h",
+               "rem_noesp_h",
+               "rem_total_h",
+               "rem_directivo_m",
+               "rem_profesional_m",
+               "rem_tecnico_m",
+               "rem_admin_m",
+               "rem_venta_m",
+               "rem_agro_m",
+               "rem_op_m",
+               "rem_noesp_m",
+               "rem_total_m"),
   Nombre = c(
     "Clasificador Internacional Industrial Uniforme (CIIU)",
     "Tamaño de la empresa",
@@ -468,7 +504,25 @@ diccionario <- tibble::tibble(
     "Número de directores",
     "Numero de directoras",
     "Empresa sin directores",
-    "Empresa sin directoras"
+    "Empresa sin directoras",
+    "Rem. Hombre Directivo",
+    "Rem. Hombre Profesional",
+    "Rem. Hombre Técnico",
+    "Rem. Hombre Administrativo",
+    "Rem. Hombre Venta",
+    "Rem. Hombre Agropecuario y pesquero",
+    "Rem. Hombre Operario",
+    "Rem. Hombre No Especializado",
+    "Rem. Hombre Total",
+    "Rem. Mujer Directivo",
+    "Rem. Mujer Profesional",
+    "Rem. Mujer Técnico",
+    "Rem. Mujer Administrativo",
+    "Rem. Mujer Venta",
+    "Rem. Mujer Agropecuario y pesquero",
+    "Rem. Mujer Operario",
+    "Rem. Mujer No Especializado",
+    "Rem. Mujer Total"
   )
 )
 
@@ -856,6 +910,8 @@ boxplot_gg_edad
 
 ggsave("grafico_2.png", boxplot_gg_edad, width = 8, height = 6, dpi = 300)
 
+
+source("graficos_tablas.R")
 #Edad promedio por sexo de gerente general + sd
 
 table(datos_proyecto$gg_sexo)
