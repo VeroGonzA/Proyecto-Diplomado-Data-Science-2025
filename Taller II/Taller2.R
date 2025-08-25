@@ -1,9 +1,27 @@
-####PARTE I####
+#### PARTE I - TEST DE HIPOTESIS Y MODELAMIENTO ####
+
+# Intalar librerias
 library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+# Abrir la base encla y revisión de columnas
 encla <- read_excel("Taller II/encla.xlsx")
 View(encla)
-library(tidyverse)
 names(encla)
+
+# Ajustar nombre de columnas
+encla <- encla %>%
+  rename (Privado = `Sector(1=Privado)`,
+          Jornada = `Jornada (1=parcial)`,
+          Casado = `Casado (1=si)`,
+          sexo = `Sexo (1=fem)`)
+
+##### PREGUNTA 1 #####
+#Recategorizar las siguientes variables:
+#Años de educación en dos grupos: Ed.media <=12 versus >12 Ed.superior
+#Edad en tres grupos: joven <30; adulto 30-50; mayor >50.
 
 encla<-encla |> 
   mutate(año_educacion=ifelse(educacion<=12, "Educacion media", "Educacion superior"),
@@ -13,73 +31,145 @@ encla<-encla |>
            Edad>50~"Mayor"
          ))
 
-
-
-
-
-####PREGUNTA 1####
-#Recategorizar las siguientes variables:
-#Años de educación en dos grupos: Ed.media <=12 versus >12 Ed.superior
-#Edad en tres grupos: joven <30; adulto 30-50; mayor >50.
-
 #(a)#Obtenga una descripción de las variables cuantitativas: experiencia laboral e ingreso según sexo, sector laboral y edad categorizada.
+
+# Tabla resumen de todos las variables
+descriptivos_encla <- encla %>%
+  group_by(sexo, Privado, edad_cat) %>%
+  summarise(
+    experiencia_media = mean(Experiencia, na.rm = T),
+    ingreso_media = mean(Ingreso, na.rm = T),
+    .groups = "drop"
+  )
+
+print(descriptivos_encla)
+
+# Resumen General por variable
+resultado_sector <- encla %>%
+  group_by(Privado) %>%
+  summarise(
+    Experiencia_media = mean(Experiencia, na.rm=T),
+    Ingreso_medio = mean(Ingreso, ra.rm=T))
+print(resultado_sector)
+
+# Resumen Edad Categorizada
+resultados_exp <- encla %>%
+  group_by(edad_cat) %>%
+  summarise(
+    experiecia = mean(Experiencia, na.rm=T),
+    ingresos = mean (Ingreso, na.rm = T))
+
+print(resultados_exp)
+
+experiencia_rangos <- encla %>%
+  group_by(edad_cat) %>%
+  summarise(
+    Experiencia_min = min(Experiencia, na.rm = TRUE),
+    Experiencia_max = max(Experiencia, na.rm = TRUE)
+  )
+print(experiencia_rangos)
+
 #(b)#Obtenga tabla % que permita inferir potencial asociación entre el nivel educacional y sector laboral.
+tabla_encla <- encla %>%
+  group_by(año_educacion, Privado) %>%
+  summarise(Frecuencia = n(), .groups = "drop") %>%
+  mutate(porcentaje = round(100 * Frecuencia / sum(Frecuencia), 1))
 
-#### PREGUNTA 2####
+print(tabla_encla)
+
+##### PREGUNTA 2 #####
 #Test de hipótesis (e idealmente represente en forma gráfica) (1 punto)
-#(a)#Es válida la afirmación: ¿existe discriminación salarial según sexo?
-# (b)#Es válida la afirmación: ¿A mayor educación mayor ingreso?
-#  (c)
-#¿Existe diferencia en el salario según edad (categorizada)?
-#  En cada caso indique sus resultados – test, valor-p y medias y sus errores estándar.
+###### (a) ¿existe discriminación salarial según sexo? #####
 
+# Convertir sexo a factor para analisis de ANOVA
+table(encla$sexo)
 
-encla=encla |> 
-  rename(sexo="Sexo (1=fem)")
-modelo = aov(Salario ~ Industria, data =df)
-summary(modelo)
-
-
-mod_1= aov(Ingreso ~ sexo, data=encla)
+encla$sexo <- factor(encla$sexo, labels = c("Hombre", "Mujer"))
+mod_1 <- aov(Ingreso ~ sexo, data=encla)
 summary(mod_1)
+TukeyHSD(mod_1)
 
+# Calcular media y error estándar por sexo
+resumen_mod1 <- encla %>%
+  group_by(sexo) %>%
+  summarise(
+    media_ingreso = mean(Ingreso, na.rm = TRUE),
+    error_estandar = sd(Ingreso, na.rm = TRUE) / sqrt(n())
+  )
+print(resumen_mod1)
+
+# Boxplot sexo - ingreso
+grafico_1 <- ggplot(encla, aes(x = sexo, y = Ingreso, fill = sexo)) +
+  geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e")) +
+  labs(
+    title = "Comparación de Ingresos por Sexo",
+    x = NULL,
+    y = "Ingreso ($miles)",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+grafico_1
+
+###### (b) ¿A mayor educación mayor ingreso? ######
 mod_2=aov(Ingreso ~ año_educacion, data=encla)
 summary(mod_2)
+TukeyHSD(mod_2)
 
-prom_sexo=encla |> 
-  group_by(sexo) |> 
-  summarise(media=mean(Ingreso))
+resumen_mod2 <- encla %>%
+  group_by(año_educacion) %>%
+  summarise(
+    media_ingreso = mean(Ingreso, na.rm = TRUE),
+    error_estandar = sd(Ingreso, na.rm = TRUE) / sqrt(n())
+  )
+print(resumen_mod2)
 
-prom_edu=encla |> 
-  group_by(año_educacion) |> 
-  summarise(media=mean(Ingreso))
+grafico_2 <- ggplot(encla, aes(x = año_educacion, y = Ingreso, fill = año_educacion)) +
+  geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e")) +
+  labs(
+    title = "Comparación de Ingresos por Nivel Educacional",
+    x = NULL,
+    y = "Ingreso ($miles)",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
+grafico_2
 
-mod_3=aov(Ingreso~edad_cat, data=encla)
+###### (c) ¿Existe diferencia en el salario según edad (categorizada)? ######
+mod_3=aov(Ingreso ~ edad_cat, data=encla)
 summary(mod_3)
-
-prom_año=encla |> 
-  group_by(edad_cat) |> 
-  summarise(media=mean(Ingreso))
-
 TukeyHSD(mod_3)
 
-##media y error estandar falta
+resumen_mod3 <- encla %>%
+  group_by(edad_cat) %>%
+  summarise(
+    media_ingreso = mean(Ingreso, na.rm = TRUE),
+    error_estandar = sd(Ingreso, na.rm = TRUE) / sqrt(n())
+  )
+print(resumen_mod3)
 
-# Test Scheffe
-DescTools::ScheffeTest(modelo, "Industria")
+grafico_3 <- ggplot(encla, aes(x = edad_cat, y = Ingreso, fill = edad_cat)) +
+  geom_boxplot(outlier.alpha = 0.3, width = 0.6) +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e", "green")) +
+  labs(
+    title = "Comparación de Ingresos por Edad Categorizada",
+    x = NULL,
+    y = "Ingreso ($miles)",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
-# H0: Todas las medias son iguales
-# H1: al menos dos medias son distintas
-# En este caso el valor p es 0.0003555 es menor a 0.05
-# Por lo tanto, rechazamos H0
-# En Conclusión, las medias salarios son diferentes para al menos 
-# dos tipos de industrias
+grafico_3
 
+##### PREGUNTA 3 ######
+###### (a) Modelos regresion lineal #####
 
-#Ajuste modelos lineales para ingreso (2 puntos)
-#(a)
-#Lleve a cabo los modelos de regresión lineal simple del ingreso en función de experiencia laboral, edad, educación, sexo. Con base a los resultados obtenidos, ¿qué variables son estadísticamente significativas?
 regr_0=lm(Ingreso~1, data=encla)
 regr_1=lm(Ingreso ~ Experiencia, data=encla )
 regr_2=lm(Ingreso ~ Edad, data=encla)
@@ -92,20 +182,16 @@ summary(regr_3)
 summary(regr_4)
 
 
-
-
-#  (b)
-#Obtenga un modelo de regresión lineal múltiple en función de todas las variables previas que resultaron estadísticamente significativas. ¿Siguen siendo significativas?
+###### (b) Modelos regresion lineal multiple #####
 
 regr_5=lm(Ingreso~ Experiencia + Edad+ educacion + sexo, data=encla)
 summary(regr_5)
-MASS::stepAIC(regr_0, scope = formula(regr_5),direction = "forward")
-m_forw <- MASS::stepAIC(regr_0, scope = formula(regr_5),direction = "forward")
-summary(m_forw)
 
+MASS::stepAIC(regr_0, scope = formula(regr_5),direction = "both")
+m_both <- MASS::stepAIC(regr_0, scope = formula(regr_5),direction = "both")
+summary(m_both)
 
-#  (c)
-#Son válidos los supuestos en este último modelo.
+###### (c) Son válidos los supuestos en este último modelo ######
 
 # a. Normalidad 
 #H0: Los datos siguen una distribución Normal.
@@ -155,9 +241,9 @@ summary(log_regr_4)
 log_regr_5=lm(log_Ingreso~ Experiencia + Edad+ educacion + sexo, data=encla)
 summary(log_regr_5)
 
-MASS::stepAIC(log_regr_0, scope = formula(log_regr_5),direction = "forward")
-m_forw <- MASS::stepAIC(log_regr_0, scope = formula(log_regr_5),direction = "forward")
-summary(m_forw)
+MASS::stepAIC(log_regr_0, scope = formula(log_regr_5),direction = "both")
+m_both <- MASS::stepAIC(log_regr_0, scope = formula(log_regr_5),direction = "both")
+summary(m_both)
 
 
 # a. Normalidad 
@@ -211,7 +297,3 @@ View(dpm)
 #Obtenga el mejor modelo de regresión logística (con todas las variables que sean significativas (2 puntos).
 #(c)
 #Compare los modelos obtenidos - ROC e indicadores de la tabla de confusión (2 puntos).
-
-
-
-
