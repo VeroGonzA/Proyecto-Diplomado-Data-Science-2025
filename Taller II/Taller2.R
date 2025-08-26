@@ -181,7 +181,6 @@ summary(regr_2)
 summary(regr_3)
 summary(regr_4)
 
-
 ###### (b) Modelos regresion lineal multiple #####
 
 regr_5=lm(Ingreso~ Experiencia + Edad+ educacion + sexo, data=encla)
@@ -207,7 +206,6 @@ nortest::lillie.test(res_regr_5)
 ##no normalidad
 
 # b. Independencia
-
 #H0: Los errores no están autocorrelacionados.
 #H1: Los errores presentan correlación a un paso.
 install.packages("lmtest")
@@ -215,15 +213,13 @@ library(lmtest)
 lmtest::dwtest(regr_5)
 ##aceptamos H0
 
-
 # c. Homocedasticidad
 #H0: Los errores son homocedásticos
 #H1: Los errores no son heterocedásticos
 lmtest::bptest(regr_5)
-##no aceptamos
+##no aceptamos H0
 
-#4.
-#Repita todo [3] pero usando como variable respuesta log(ingreso) (2 puntos)
+#4. Repita todo [3] pero usando como variable respuesta log(ingreso) (2 puntos)
 encla<-encla |> 
   mutate(log_Ingreso=log(Ingreso))
 
@@ -255,45 +251,18 @@ ggplot(data=NULL, aes(sample = log_res_regr_5 ))+
 
 shapiro.test(log_res_regr_5)
 nortest::lillie.test(log_res_regr_5)
-
-##no normalidad
+## Aceptamos H0.
 
 # b. Independencia
 
 #H0: Los errores no están autocorrelacionados.
 #H1: Los errores presentan correlación a un paso.
 lmtest::dwtest(log_regr_5)
-##aceptamos H0
-
+## Aceptamos H0
 
 # c. Homocedasticidad
 #H0: Los errores son homocedásticos
 #H1: Los errores no son heterocedásticos
 lmtest::bptest(log_regr_5)
-##si aceptamos
 
-
-#(a)
-#¿hay diferencias respecto a lo obtenido en 3a, 3b y 3c? ¿cuáles?
-#  Trate de ser lo más conciso al responder cada pregunta. En su análisis debe considerar lo visto en el curso y en especial lo relativo a análisis de residuos.
-
-
-#PARTE 2
-
-dpm <- read_excel("Taller II/dpm.xlsx")
-View(dpm)
-
-
-
-#AIC
-#Stepwise
-#fit<-lm(…., family=logistic)
-#AIC(fit)
-#BIC(fit)
-
-#a)
-#Obtenga el mejor modelo de regresión logística con solo 2 predictores (2 puntos)
-#(b)
-#Obtenga el mejor modelo de regresión logística (con todas las variables que sean significativas (2 puntos).
-#(c)
-#Compare los modelos obtenidos - ROC e indicadores de la tabla de confusión (2 puntos).
+## Aceptamos H0
