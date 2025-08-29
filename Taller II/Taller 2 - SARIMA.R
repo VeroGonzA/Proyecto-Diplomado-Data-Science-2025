@@ -1,132 +1,154 @@
 #### PARTE III - SERIES DE TIEMPO ####
 library(readxl)
-library(tidyverse)
-library(dplyr)
-library(ggplot2)
-library(pROC)
 library(forecast)
 library(tseries)
-library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(FinTS)
 
-# Carga de base de datos
-des <- read_excel("Tasa_Des.xlsx")
+# 1. Importar y preparar datos
 
-# Crear columna fecha
-des <- des %>%
-  mutate(Fecha = ymd(paste(AÑO, MES, "01", sep = "-"))) %>%
-  arrange(Fecha)
-
-# Separar datos de entrenamiento y prueba
+des <- read_excel("tasa_des.xlsx")
+des <- des %>% mutate(FECHA = as.Date(paste(AÑO, MES, "01", sep ="-")))
 train <- des %>% filter(FILTRO == "train")
-test <- des %>% filter(FILTRO == "test")
 
-# Creamos la serie de tiempo con train
-ts_train <- ts(train$TASA_DESOCUPACION, start =c(2010,3),
-               frequency = 12)
+# Serie ts mensual: inicio 2010-03
+y <- ts(train$TASA_DESOCUPACION, start = c(2010, 3), frequency = 12)
 
-#Graficar serie temporal
-autoplot(ts_train) + ggtitle("Tasa de Desocupacion (2010/03 - 2024/12")
-+ ylab("Tasa (%)")
+autoplot(y) + ggtitle("Tasa de Desocupación (2010–2024)") +
+  xlab("Año") + ylab("Tasa en %")
 
-# 1. Verificar la estacionariedad
-adf.test(ts_train) #Prueba de Dickey-Fuller
 
-## El p<.05 por ende la serie es estacionaria.
-## No es necesario aplicar diferencial adicional (d=0)
+# 2. ACF/PACF – Serie original
 
-# Descomposicion -> Para entender la estructura de la serie
-decomp <- decompose(ts_train)
-autoplot(decomp)
+ggAcf(y, lag.max = 48) + ggtitle("ACF - Serie original (mensual)")
+ggPacf(y, lag.max = 48) + ggtitle("PACF - Serie original (mensual)")
 
-# STL
-stl_decomp <- stl(ts_train, s.window = "periodic")
-autoplot(stl_decomp)
 
-#Interpretacion grafico
-# Tendencia: Hubo un aumento gradual desde 2010, hasta el 2020 que hay un pico (debido a la pandemia)
-## luego una disminucion hacia 2024 > La ts tuvo una fase de crecimiento sostenido
-# Estacionalidad: muestra patrones repetitivos cada año, con fluctuaciones regulares.
-## Conclusion: Hay una estacionalidad clara, probablemente relacionada con ciclos laborales anuales
-## ejemplo: contraciones o despidos en ciertos meses. > Esto justifica el uso de un componente estacional en el modelo ARIMA (P,D,Q)[12]
-# Ruido (Aleatoriedad): El gráfico de residuos muestra fluctuaciones irregulares sin patron claro
-## El modelo capta bien la tendencia y estacionalidad, y lo que queda es ruido blanco
-## Esto es deseable, ya que indica que el modelo esta explicando adecuadamente la variabilidad estructurada.
+# 3. Test de estacionariedad
 
-# Analisis de ACF y PACF
-acf(ts_train, lag.max = 36)
+adf.test(y)
 
-#Grafico
-#Las barras de autocorrelacion en los primeros lags exce las lineas punteadas,
-#lo que indica autocorrelacion significativa.
-#La disminucion gradual de las barras sugiere que hay una estructura
-#dependiente en el tiempo, es decir, los valores pasados influyen en el los futuros.
-#No hay un corte abrupto en las barras, lo que incia que el componente MA (Media Movil)
-#Podria ser no dominante > La serie es estacionaria por lo tanto no necesita diferenciacion d=0
-#Autocorrelacion significativa en lag 1 > MA q = 1
-# Q= 1 > (p,0,1)(P,0,1)[12]
 
-pacf(ts_train, lag.max = 36)
+# 4. Box-Cox
 
-#Componente AR (p)
-#La significancia en el lag 1 sugiere que se debe incluir un componente autoregresivo de orden 1 p:1
+lambda <- BoxCox.lambda(y, method = "guerrero", lower = -1, upper = 2)
+use_bc <- abs(lambda - 1) > 0.1
+y_bc <- if (use_bc) BoxCox(y, lambda) else y
+cat(sprintf("Lambda sugerido = %.3f | ¿Usar Box-Cox?: %s\n",
+            lambda, ifelse(use_bc,"Sí","No")))
 
-#Componente estacional AR (P)
-#El grafico PACF no muestra lags esuacionales, si en el ACF
-# se podría considerar P=1.
+# ACF/PACF tras BC
+if (use_bc) {
+  ggAcf(y_bc, lag.max = 48) + ggtitle(sprintf("ACF - Box-Cox (λ=%.2f)", lambda))
+  ggPacf(y_bc, lag.max = 48) + ggtitle(sprintf("PACF - Box-Cox (λ=%.2f)", lambda))
+}
 
-#Modelo arima sugerido ARIMA(1,0,1)(1,0,1)[12]
 
-# Ejemplo de modelo manual
-manual_arima <- Arima(ts_train, order = c(1,0,1), seasonal = c(1,0,1))
-summary(manual_arima)
+# 5. Determinar d y D
 
-#Diagnostico de residuos
+d <- ndiffs(y_bc, alpha = 0.05, test = "adf")
+D <- nsdiffs(y_bc, m = frequency(y_bc), test = "ocsb")
+cat(sprintf("ndiffs (d) = %d | nsdiffs (D) = %d\n", d, D))
 
-checkresiduals(manual_arima)
-#Al tener un p<.05 implica que hay autorrelacion significativa de los residuos
-#Esto implica que le modelo no esta capturando la estrucutra de la serie
+# Serie transformada + diferenciada para validar y mirar ACF/PACF
+y_diff <- y_bc
+if (D > 0) y_diff <- diff(y_diff, lag = frequency(y_diff), differences = D)
+if (d > 0) y_diff <- diff(y_diff, differences = d)
 
-box.test(residuals(manual_arima, lag=12, type = "Ljung-Box"))
+adf_res <- adf.test(na.omit(y_diff)); print(adf_res)
 
-# Auto ARIMA
-auto_model <- auto.arima(ts_train)
-summary(auto_model)
+ggAcf(na.omit(y_diff), lag.max = 48) + ggtitle("ACF - Serie transformada y diferenciada")
+ggPacf(na.omit(y_diff), lag.max = 48) + ggtitle("PACF - Serie transformada y diferenciada")
 
-checkresiduals(auto_model)
-#Al tene p>.05 implica que NO hay autocorrelacion significativa de los residuos
-#Esto implica que el modelo esta capturando la estructura de la serie.
+# Comparar con auto.arima
+fit_final <- auto.arima(
+  y,
+  seasonal = TRUE,
+  stepwise = FALSE,
+  approximation = FALSE,
+  lambda  = if (use_bc) lambda else NULL,
+  biasadj = TRUE,
+  d = d,
+  D = D
+)
+summary(fit_final)
 
-# Comparar AIC
-AIC(manual_arima)
-AIC(auto_model)
 
-# Pronóstico de 6 meses
-forecast_model <- forecast(auto_model, h = 6)
+# 6. Diagnóstico Supuestos
 
-# Comparar con datos reales
-autoplot(forecast_model) +
-  autolayer(ts(test$TASA_DESOCUPACION, start = c(2025, 1), frequency = 12), series = "Real") +
-  ggtitle("Pronóstico vs Realidad: Modelo SARIMA") +
-  ylab("Tasa de Desocupación")
+#Residuos
+checkresiduals(fit_final)
+Box.test(residuals(fit_final), lag=24, type="Ljung-Box", fitdf=length(fit_final$coef))
 
-# Crear tabla comparativa
-real_values <- test$TASA_DESOCUPACION
-predicted_values <- as.numeric(forecast_model$mean)
-delta <- abs(real_values - predicted_values)
+# Test de normalidad Shapiro–Wilk
+shapiro_res <- shapiro.test(residuals(fit_final))
+print(shapiro_res)
 
-# Crear data frame
-comparison <- data.frame(
-  Mes = format(test$Fecha, "%Y-%m"),
-  Valor_Real = round(real_values, 3),
-  Valor_Predicho = round(predicted_values, 3),
-  Delta = round(delta, 3)
+#Varianza
+install.packages("FinTS")
+library(FinTS)
+
+# Test ARCH con 12 rezagos
+arch_res <- ArchTest(residuals(fit_final), lags = 12)
+print(arch_res)
+
+
+# 7. Pronóstico (ene–jun 2025)
+
+h <- 6
+fcast <- forecast(fit_final, h = h, biasadj = TRUE)
+fechas_2025 <- seq(as.Date("2025-01-01"), by = "month", length.out = h)
+
+pred <- data.frame(
+  FECHA = fechas_2025,
+  Predicho = as.numeric(fcast$mean),
+  Lo95 = as.numeric(fcast$lower[,2]),
+  Hi95 = as.numeric(fcast$upper[,2])
 )
 
-# Calcular MAPE y precisión
-mape <- mean(abs(delta / real_values)) * 100
-precision <- 100 - mape
+# Reales 2025
+reales <- des %>%
+  dplyr::filter(FECHA >= as.Date("2025-01-01") & FECHA <= as.Date("2025-06-30")) %>%
+  mutate(FECHA = as.Date(format(FECHA, "%Y-%m-01"))) %>%
+  group_by(FECHA) %>%
+  summarise(Real = mean(TASA_DESOCUPACION, na.rm = TRUE), .groups = "drop")
 
-# Mostrar resultados
-print(comparison)
-cat("Precisión del modelo auto ARIMA:", round(precision, 2), "%\n")
+comparacion <- left_join(reales, pred, by = "FECHA") %>%
+  mutate(Delta = Real - Predicho,
+         AbsError = abs(Delta),
+         PercError = AbsError/Real*100)
+
+print(comparacion)
+
+MAE_2025  <- mean(comparacion$AbsError, na.rm=TRUE)
+MAPE_2025 <- mean(comparacion$PercError, na.rm=TRUE)
+Precision_2025 <- 100 - MAPE_2025
+cat(sprintf("MAE 2025 = %.3f | MAPE 2025 = %.2f%% | Precisión = %.2f%%\n",
+            MAE_2025, MAPE_2025, Precision_2025))
+
+
+# 8. Gráficos finales
+
+# (a) Serie completa + predicción
+ggplot() +
+  geom_line(data = des, aes(x = FECHA, y = TASA_DESOCUPACION, color = "Real")) +
+  geom_line(data = pred, aes(x = FECHA, y = Predicho, color = "Predicho")) +
+  geom_ribbon(data = pred, aes(x = FECHA, ymin = Lo95, ymax = Hi95), alpha = 0.15, inherit.aes = FALSE) +
+  scale_color_manual(values = c("Real" = "blue", "Predicho" = "red")) +
+  labs(title = "Serie histórica y Pronóstico SARIMA (2010–2025)",
+       x = "Año", y = "Tasa de Desocupación (%)", color = "") +
+  theme_minimal()
+
+# (b) Zoom 2025: reales vs predichos (ene–jun)
+ggplot(comparacion, aes(x = FECHA)) +
+  geom_ribbon(aes(x = FECHA, ymin = Lo95, ymax = Hi95), alpha = 0.15, inherit.aes = FALSE) +
+  geom_line(aes(y = Real, color = "Real"), size = 0.9) +
+  geom_point(aes(y = Real, color = "Real"), size = 2) +
+  geom_line(aes(y = Predicho, color = "Predicho"), linetype = "dashed", size = 0.9) +
+  scale_color_manual(values = c("Real" = "blue", "Predicho" = "red")) +
+  labs(title = "Reales vs Predichos (ene–jun 2025)",
+       x = "Mes", y = "Tasa de Desocupación (%)", color = "") +
+  theme_minimal()
 
