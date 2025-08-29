@@ -80,10 +80,6 @@ pacf(ts_train, lag.max = 36)
 manual_arima <- Arima(ts_train, order = c(1,0,1), seasonal = c(1,0,1))
 summary(manual_arima)
 
-#Resumen del modelo actual: ARIMA(1,1,1)(1,1,1)[12]
-#El modelo ajusta bien la serie, con bajo error y alta precisión.
-#Los coeficientes estacionales son muy fuertes, lo que indica que la estacionalidad anual es clave.
-
 #Diagnostico de residuos
 
 checkresiduals(manual_arima)
@@ -133,3 +129,4 @@ precision <- 100 - mape
 # Mostrar resultados
 print(comparison)
 cat("Precisión del modelo auto ARIMA:", round(precision, 2), "%\n")
+
