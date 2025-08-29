@@ -48,9 +48,9 @@
 ## Funciones personalizadas ##
 ##############################
 
-source("summary.arima.R")
-source("TS.diag.R")
-source("TS.summary.R")
+source("Taller II/summary.arima.R")
+source("Taller II/TS.diag.R")
+source("Taller II/TS.summary.R")
 
 #################
 ## Modelo ARMA ##
@@ -60,9 +60,8 @@ source("TS.summary.R")
 ## (i ) Media constante
 ## (ii) Comportamiento Homocedastico
 ## (iii)ACF constante en el tiempo
-
+##chequea el punto 1 y 2, supone el punto 3
 ## Ejemplo: Anillos de Crecimiento
-
 X <- LSTS::malleco
 par(bty = "n", las = 1)
 plot(X, col = "gray", xlim = c(1200,2000), ylab = "", xlab = "", ylim = c(0,2))

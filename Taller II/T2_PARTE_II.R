@@ -72,6 +72,9 @@ resultados <- map_df(comb, function(vars) {
     modelo = list(modelo)
   )
 })
+
+
+
 ###mostrar en una tabla los resultados de los 78 modelos?
 
 
@@ -172,27 +175,24 @@ auc(roc_obj)
 #Compare los modelos obtenidos - ROC e indicadores de la tabla de confusión (2 puntos).
 #los nombro segun el numero de variables por una cosa de orden
 modelo2<-modelo_final
-modelo5<-modelo_mejor
+modelo4<-modelo_mejor2
 library(pROC)
 library(caret)
 
-# Suponiendo que los modelos se llaman:
-# modelo2 (con 2 variables)
-# modelo5 (con 5 variables)
 
 # ---- 1. Predicciones ----
 # Probabilidades predichas sobre la muestra de prueba (test)
 prob2 <- predict(modelo2, newdata = test, type = "response")
-prob5 <- predict(modelo5, newdata = test, type = "response")
+prob4 <- predict(modelo5, newdata = test, type = "response")
 
 # ---- 2. ROC y AUC ----
 roc2 <- roc(test$Evento, prob2)
-roc5 <- roc(test$Evento, prob5)
+roc4 <- roc(test$Evento, prob4)
 
 par(mfrow = c(1,1)) # dos gráficos lado a lado
 plot(roc2, col="blue", main="Comparación ROC")
-lines(roc5, col="red")
-legend("bottomright", legend=c("Modelo 2 vars", "Modelo 5 vars"),
+lines(roc4, col="red")
+legend("bottomright", legend=c("Modelo 2 variables", "Modelo 4 variables"),
        col=c("blue","red"), lwd=2)
 
 auc(roc2)
@@ -201,27 +201,27 @@ auc(roc5)
 # ---- 3. Tablas de confusión ----
 # Definir umbral 0.5 (o elegir el óptimo con coords())
 pred2 <- ifelse(prob2 > 0.5, 1, 0)
-pred5 <- ifelse(prob5 > 0.5, 1, 0)
+pred4 <- ifelse(prob4 > 0.5, 1, 0)
 
 confusionMatrix(as.factor(pred2), as.factor(test$Evento), positive="1")
-confusionMatrix(as.factor(pred5), as.factor(test$Evento), positive="1")
+confusionMatrix(as.factor(pred4), as.factor(test$Evento), positive="1")
 
 
 ##optimo
 
 # Umbral óptimo (Youden index = max(sens+esp-1))
 opt2 <- as.numeric(coords(roc2, "best", ret = "threshold", best.method = "youden"))
-opt5 <- as.numeric(coords(roc5, "best", ret = "threshold", best.method = "youden"))
+opt4 <- as.numeric(coords(roc4, "best", ret = "threshold", best.method = "youden"))
 
-opt2; opt5  # Umbrales recomendados
+opt2; opt4  # Umbrales recomendados
 
 # Clasificación usando los umbrales óptimos
 pred2_opt <- ifelse(prob2 > opt2, 1, 0)
-pred5_opt <- ifelse(prob5 > opt5, 1, 0)
+pred4_opt <- ifelse(prob4 > opt5, 1, 0)
 
 # Matrices con umbral optimo
 confusionMatrix(as.factor(pred2_opt), as.factor(test$Evento), positive="1")
-confusionMatrix(as.factor(pred5_opt), as.factor(test$Evento), positive="1")
+confusionMatrix(as.factor(pred4_opt), as.factor(test$Evento), positive="1")
 
 
 ###creo que dado que el valor del AIC es casi igual, aca lo que hay que profundizar
@@ -232,3 +232,4 @@ confusionMatrix(as.factor(pred5_opt), as.factor(test$Evento), positive="1")
 #altos valores positivos falsos
 #altos valores negativos falsos
 #me imagino desde una perspectiva medica.
+#elegir el modelo que le acierta más a predicir los uno y se equivoca menos en predecir los uno

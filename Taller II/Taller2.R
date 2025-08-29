@@ -44,6 +44,16 @@ descriptivos_encla <- encla %>%
 
 print(descriptivos_encla)
 
+
+library(writexl)
+write_xlsx(
+  list(
+    "Descriptivos_encla" = descriptivos_encla),
+  path = "Taller II/Tablas.xlsx"
+)
+
+
+
 # Resumen General por variable
 resultado_sector <- encla %>%
   group_by(Privado) %>%
@@ -176,10 +186,25 @@ regr_2=lm(Ingreso ~ Edad, data=encla)
 regr_3=lm(Ingreso ~ educacion, data=encla)
 regr_4=lm(Ingreso ~ sexo, data=encla)
 
+
 summary(regr_1)
 summary(regr_2)
 summary(regr_3)
 summary(regr_4)
+
+# Instalar si no lo tienes
+#install.packages("stargazer")
+library(stargazer)
+
+stargazer(regr_0, regr_1, regr_2, regr_3, regr_4,
+          type = "text",      # o "latex" si lo necesitas para un informe
+          title = "Modelos de Regresión del Ingreso",
+          align = TRUE,
+          dep.var.labels = "Ingreso",
+          covariate.labels = c("Experiencia", "Edad", "Educación", "Sexo"),
+          omit.stat = c("f", "ser"),   # opcional: ocultar stats que no quieras
+          no.space = TRUE)
+
 
 ###### (b) Modelos regresion lineal multiple #####
 
@@ -196,10 +221,25 @@ summary(m_both)
 #H0: Los datos siguen una distribución Normal.
 #H1: Los datos no siguen una distribución Normal.
 res_regr_5 = regr_5$residuals 
-ggplot(data=NULL, aes(sample = res_regr_5 ))+
-  stat_qq() + stat_qq_line()
+ggplot(data = NULL, aes(sample = res_regr_5)) +
+  stat_qq(color = "steelblue", size = 2, alpha = 0.6) +   # puntos
+  stat_qq_line(color = "red", linetype = "dashed") +  # línea de referencia
+  labs(
+    title = "QQ-Plot de Residuos del Modelo de Ingresos",
+    subtitle = "Comparación de cuantiles teóricos vs. cuantiles de residuos",
+    x = "Cuantiles Teóricos",
+    y = "Cuantiles de Residuos"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold")
+  )
 
-install.packages("nortest")
+#install.packages("nortest")
+
 library(nortest)
 shapiro.test(res_regr_5)
 nortest::lillie.test(res_regr_5)
@@ -208,7 +248,7 @@ nortest::lillie.test(res_regr_5)
 # b. Independencia
 #H0: Los errores no están autocorrelacionados.
 #H1: Los errores presentan correlación a un paso.
-install.packages("lmtest")
+#install.packages("lmtest")
 library(lmtest)
 lmtest::dwtest(regr_5)
 ##aceptamos H0
@@ -246,8 +286,22 @@ summary(m_both)
 #H0: Los datos siguen una distribución Normal.
 #H1: Los datos no siguen una distribución Normal.
 log_res_regr_5 = log_regr_5$residuals 
-ggplot(data=NULL, aes(sample = log_res_regr_5 ))+
-  stat_qq() + stat_qq_line()
+ggplot(data = NULL, aes(sample = log_res_regr_5)) +
+  stat_qq(color = "steelblue", size = 2, alpha = 0.6) +   # puntos
+  stat_qq_line(color = "red", linetype = "dashed") +  # línea de referencia
+  labs(
+    title = "QQ-Plot de Residuos del Modelo log(Ingresos)",
+    subtitle = "Comparación de cuantiles teóricos vs. cuantiles de residuos",
+    x = "Cuantiles Teóricos",
+    y = "Cuantiles de Residuos"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold")
+  )
 
 shapiro.test(log_res_regr_5)
 nortest::lillie.test(log_res_regr_5)
