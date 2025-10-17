@@ -181,3 +181,40 @@ fviz_pca_biplot(
 #trace las curvas ROC y compare los AUC entre ambos modelos,
 #comentando cuál desempeña mejor y por qué.
 
+library(DAAG)
+library(splitTools)
+set.seed(2025)
+names(bbdd) <- gsub(" ", "_", names(bbdd))
+
+bbdd_part <- partition(1:nrow(bbdd), p=c(0.7,0.3))
+bbdd_train <- bbdd[bbdd_part$`1`,]
+bbdd_test  <- bbdd[bbdd_part$`2`,]
+library(rpart); library(rpart.plot)
+
+
+
+# Árbol con entropía
+tree_entropy <- rpart(diagnosis ~ ., data = bbdd_train,
+                      parms = list(split = 'information'),
+                      method = "class")
+rpart.plot(tree_entropy)
+
+tree_gini <- rpart(diagnosis ~ ., data = bbdd_train,
+                   parms = list(split = 'gini'),
+                   method = "class")
+rpart.plot(tree_gini)
+
+# Árbol con poda (Gini)
+tree_gini_prune <- rpart(diagnosis ~ ., data = bbdd_train,
+                         parms = list(split = 'gini'),
+                         method = "class",
+                         control = rpart.control(cp = 0.032))
+rpart.plot(tree_gini_prune)
+
+# Random Forest
+library(randomForest)
+set.seed(2025)
+RanForClas <- randomForest(diagnosis ~ ., data = bbdd_train,###esta linea me da error
+                           ntree = 200, importance = TRUE)
+barplot(RanForClas$importance[,'MeanDecreaseAccuracy'],
+        names.arg = names(RanForClas$importance[,'MeanDecreaseAccuracy']))
