@@ -77,8 +77,56 @@ ids_lof <- top_lof$id
 ids_comunes <- Reduce(intersect, list(ids_md, ids_isof, ids_lof))
 print(ids_comunes)
 
-# Identificar datos morfologicos de los IDs
-#PENDIENTE EL CODIGO
+#Comparar Ids vs el resto
+variables <- c("radius_mean",
+               "perimeter_mean",
+               "texture_mean",
+               "area_mean",
+               "concavity_worst",
+               "compactness_worst",
+               "concave.points_worst")
+
+#Subconjuntos
+bbdd_id <- bbdd[bbdd$id %in% ids_comunes, variables]
+bbdd_resto <- bbdd[!(bbdd$id %in% ids_comunes), variables]
+
+#Estadisticas de cada subconjunto
+global <- data.frame(
+  variables  = variables,
+  mean     = sapply(bbdd[variables], mean, na.rm = TRUE),
+  minimum  = sapply(bbdd[variables], min,  na.rm = TRUE),
+  maximum  = sapply(bbdd[variables], max,  na.rm = TRUE)
+)
+
+outliers <- data.frame(
+  variables  = variables,
+  mean     = sapply(bbdd_id[variables], mean, na.rm = TRUE),
+  minimum  = sapply(bbdd_id[variables], min,  na.rm = TRUE),
+  maximum  = sapply(bbdd_id[variables], max,  na.rm = TRUE)
+)
+
+resto <- data.frame(
+  variables  = variables,
+  mean     = sapply(bbdd_resto[variables], mean, na.rm = TRUE),
+  minimum  = sapply(bbdd_resto[variables], min,  na.rm = TRUE),
+  maximum  = sapply(bbdd_resto[variables], max,  na.rm = TRUE)
+)
+
+# Comparación
+comparacion_bbdd <- data.frame(
+  variables        = variables,
+  mean_global    = global$mean,
+  mean_outliers  = outliers$mean,
+  mean_resto      = resto$mean,
+  min_global     = global$minimum,
+  min_outliers   = outliers$minimum,
+  min_resto       = resto$minimum,
+  max_global     = global$maximum,
+  max_outliers   = outliers$maximum,
+  max_resto      = resto$maximum
+)
+
+print(comparacion_bbdd)
 
 ##### PREGUNTA C #####
 library(tidyverse)
@@ -203,4 +251,5 @@ auc_rf <- auc(roc_rf)
 
 cat("AUC Árbol de decisión:", round(auc_tree, 3), "\n")
 cat("AUC Random Forest:", round(auc_rf, 3), "\n")
+
 
