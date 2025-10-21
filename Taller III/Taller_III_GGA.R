@@ -61,10 +61,13 @@ bbdd_n$lof <- lof_scores
 bbdd_n$id <- bbdd$id
 bbdd_n$diagnosis <- bbdd$diagnosis
 
-#Identificar Top 10 para cada método
-top_md <- bbdd_n %>% arrange(desc(md)) %>% slice(1:10)
-top_isof <- bbdd_n %>% arrange(desc(isoforest)) %>% slice(1:10)
-top_lof <- bbdd_n %>% arrange(desc(lof)) %>% slice(1:10)
+#Identificar Top 20 para cada método
+top_md <- bbdd_n %>% arrange(desc(md)) %>% slice(1:20)
+top_isof <- bbdd_n %>% arrange(desc(isoforest)) %>% slice(1:20)
+top_lof <- bbdd_n %>% arrange(desc(lof)) %>% slice(1:20)
+
+## El ejercicio pide al menos 5 IDs, con el top 10 solo tenia
+## 3 IDs, pero aumentando a un Top 20 salen 6 IDs
 
 # Extraer los IDs de cada top
 ids_md <- top_md$id
@@ -200,3 +203,4 @@ auc_rf <- auc(roc_rf)
 
 cat("AUC Árbol de decisión:", round(auc_tree, 3), "\n")
 cat("AUC Random Forest:", round(auc_rf, 3), "\n")
+
