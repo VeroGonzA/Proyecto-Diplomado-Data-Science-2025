@@ -30,6 +30,8 @@
 library(readr)
 bbdd <- read_csv("Taller III/breast-cancer.csv")
 View(bbdd)
+names(bbdd) <- gsub(" ", "_", names(bbdd))
+
 
 #install.packages('tidyverse')
 #install.packages('plotly')
@@ -51,24 +53,39 @@ library(isotree)
 library(dbscan)
 library(caret)
 str(bbdd)
-bbdd_n<-bbdd |> select(-id)
-names(bbdd_n)
 
-bbdd_n <- bbdd_n |> 
+bbdd_b<-bbdd |> select(-id)
+names(bbdd_b)
+
+bbdd_b <- bbdd_b |> 
   mutate(across(-diagnosis, as.numeric),
          diagnosis=as.numeric(factor(diagnosis, levels=c("B","M"))))
  
+#estandarizar variables para no sesgar el análisis
+
+bbdd_st <- bbdd_b |>
+  mutate(
+    across(
+      .cols = where(is.numeric) & !diagnosis,
+      .fns  = ~ as.numeric(scale(.x))
+    )
+  )
+
+
+summary(bbdd_st)
+
 #1. Distancia de Mahalanobis
-md = mahalanobis(bbdd_n,
-                 colMeans(bbdd_n),
-                 cov(bbdd_n))
+md = mahalanobis(bbdd_st,
+                 colMeans(bbdd_st),
+                 cov(bbdd_st))
 
 
 bx_md = boxplot(md)
+bbdd_b$dist_mahalanobis <- md
 
 
-bbdd<-bbdd %>%
-  mutate(dist_mahalanobis = md)###outlier son los con mayor número
+#bbdd_b<-bbdd_st %>%
+#  mutate(dist_mahalanobis = md)###outlier son los con mayor número
 
 
 
@@ -76,7 +93,7 @@ bbdd<-bbdd %>%
 # Ajustamos el modelo
 set.seed(14)
 isoforest_m <- isolation.forest(
-  bbdd_n,      # solo variables numéricas
+  bbdd_st,      # solo variables numéricas
   ntrees      = 1000,
   sample_size = "auto",
   ndim        = 1,   # proyección univariante (similar a sklearn por defecto)
@@ -85,11 +102,11 @@ isoforest_m <- isolation.forest(
   nthreads    = 1)
 
 # Scores de anomalía (valores más altos = más anómalos)
-scores <- predict(isoforest_m, bbdd_n, type = "score")
+scores <- predict(isoforest_m, bbdd_st, type = "score")
 
 boxplot(scores)
 
-bbdd$dist_isoforest <- scores
+bbdd_b$dist_isoforest <- scores
 
 # Top 10 casos más anómalos
 head(bbdd[order(-bbdd$dist_isoforest), ], 10)###outlier son los con valor más bajo
@@ -98,17 +115,23 @@ head(bbdd[order(-bbdd$dist_isoforest), ], 10)###outlier son los con valor más b
 # 4.- Método LOF
 # Ajustar el modelo LOF
 # k = número de vecinos (equivale a n_neighbors en sklearn)
-lof_scores <- lof(bbdd_n, minPts = 20)
+
+###estandarizar variables
+###criterio intercuartil
+### criterio 97,5
+lof_scores <- lof(bbdd_st, minPts = 20)
 
 boxplot(lof_scores)
 
-bbdd$dist_lof <- lof_scores
+bbdd_b$dist_lof <- lof_scores
 
 # Valores más anómalos ---
-head(bbdd_n[order(-bbdd_n$dist_lof), ], 10)
+#head(bbdd_n[order(-bbdd_n$dist_lof), ], 10)
 
 
-bbdd_b<-bbdd |> 
+bbdd_b$ID<-bbdd$id
+
+bbdd_b<-bbdd_b |> 
   mutate(ranking_1=rank(-dist_mahalanobis),
          ranking_2=rank(-dist_isoforest),
          ranking_3=rank(-dist_lof))
@@ -117,16 +140,84 @@ bbdd_b<-bbdd_b |>
   arrange(ranking_outlier)
 
 ranking_1<-bbdd_b |> 
-  filter(ranking_1<=10)
+  filter(ranking_1<=20)
 ranking_2<-bbdd_b |> 
-  filter(ranking_2<=10)
+  filter(ranking_2<=20)
 ranking_3<-bbdd_b |> 
-  filter(ranking_3<=10)
+  filter(ranking_3<=20)
 
 
 outlier<-ranking_1 |> 
   full_join(ranking_2) |> 
   full_join(ranking_3)
+
+###segun intercuartil
+
+umbral_1 <- quantile(bbdd_b$dist_isoforest, 0.95)
+
+bbdd_b <- bbdd_b|>
+  mutate(outlier_1 = dist_isoforest > umbral_1)
+
+umbral_2 <- quantile(bbdd_b$dist_mahalanobis, 0.95)
+
+bbdd_b <- bbdd_b|>
+  mutate(outlier_2 = dist_mahalanobis > umbral_2)
+
+umbral_3 <- quantile(bbdd_b$dist_lof, 0.95)
+
+bbdd_b <- bbdd_b|>
+  mutate(outlier_3 = dist_lof > umbral_3)
+
+outlier_int<-bbdd_b |> 
+  mutate(out_int=ifelse(outlier_1==TRUE & outlier_2==TRUE & outlier_3==TRUE, 1, 0)) |> 
+  filter(out_int==1)
+
+##selecciono los 5 primeros del criterio 20 en cada uno, que ademas están en el umbral .95 de los tres modelos
+out_select<-outlier_int |> 
+  head(5)
+
+bbdd_modelo<-bbdd |> 
+  mutate(diagnosis = as.numeric(factor(diagnosis, levels = c("B", "M"))) - 1) |> 
+  select(-id)
+
+##modelo con todos los IDs  
+modelo_1 = glm(diagnosis~., data=bbdd_modelo)
+
+
+probabilidades_1 = predict(modelo_1, newdata = bbdd_modelo, type = "response")
+predicciones_1 = ifelse(probabilidades_1 > 0.5, 1, 0)
+
+confusionMatrix(data = factor(predicciones_1),
+                reference = factor(bbdd_modelo$diagnosis), positive = "1")
+
+##modelo sin los 5 ids
+
+
+bbdd_sinout<-bbdd |> 
+  anti_join(out_select |> select(ID), by=c("id"="ID")) |> 
+  mutate(diagnosis = as.numeric(factor(diagnosis, levels = c("B", "M"))) - 1) |> 
+  select(-id)
+
+modelo_2=glm(diagnosis~., data=bbdd_sinout)
+
+
+probabilidades_2 = predict(modelo_2, newdata = bbdd_sinout, type = "response")
+predicciones_2 = ifelse(probabilidades_2 > 0.5, 1, 0)
+
+confusionMatrix(data = factor(predicciones_2),
+                reference = factor(bbdd_sinout$diagnosis), positive = "1")
+
+
+probabilidades_3 = predict(modelo_2, newdata = bbdd_modelo, type = "response")
+predicciones_3 = ifelse(probabilidades_3 > 0.5, 1, 0)
+
+confusionMatrix(data = factor(predicciones_3),
+                reference = factor(bbdd_modelo$diagnosis), positive = "1")
+
+
+
+
+###considerando que un modelo predictivo sin los outlier predice los mismo
 
 ###utilizando un criterio de los 10 mas outlier de cada ranking, sólo hay 3 ids que cumplen conla condicion en
 ###todos los rankings
@@ -185,10 +276,13 @@ library(DAAG)
 library(splitTools)
 set.seed(2025)
 names(bbdd) <- gsub(" ", "_", names(bbdd))
+bbdd_c<-bbdd |> 
+  mutate(diagnosis = factor(diagnosis, levels = c("B", "M")))
+  
 
-bbdd_part <- partition(1:nrow(bbdd), p=c(0.7,0.3))
-bbdd_train <- bbdd[bbdd_part$`1`,]
-bbdd_test  <- bbdd[bbdd_part$`2`,]
+bbdd_part <- partition(1:nrow(bbdd_c), p=c(0.7,0.3))
+bbdd_train <- bbdd_c[bbdd_part$`1`,]
+bbdd_test  <- bbdd_c[bbdd_part$`2`,]
 library(rpart); library(rpart.plot)
 
 
@@ -218,3 +312,36 @@ RanForClas <- randomForest(diagnosis ~ ., data = bbdd_train,###esta linea me da 
                            ntree = 200, importance = TRUE)
 barplot(RanForClas$importance[,'MeanDecreaseAccuracy'],
         names.arg = names(RanForClas$importance[,'MeanDecreaseAccuracy']))
+
+
+####
+
+prob_entropy <- predict(tree_entropy, bbdd_test, type = "prob")[,2]
+prob_gini<- predict(tree_gini, bbdd_test, type = "prob")[,2]
+prob_gini_prune   <- predict(tree_gini_prune, bbdd_test, type = "prob")[,2]
+prob_rf     <- predict(RanForClas, bbdd_test, type = "prob")[,2]
+
+library(pROC)
+
+roc_entropy <- roc(bbdd_test$diagnosis, prob_entropy)
+roc_gini<- roc(bbdd_test$diagnosis, prob_gini)
+roc_gini_prune   <- roc(bbdd_test$diagnosis, prob_gini_prune)
+roc_rf<- roc(bbdd_test$diagnosis, prob_rf)
+
+
+
+plot(roc_entropy, col = "purple",  lwd = 2, main = "Curvas ROC comparadas")
+plot(roc_gini, col = "violet", lwd = 2, add = TRUE)
+plot(roc_gini_prune,     col = "magenta",   lwd = 2, add = TRUE)
+plot(roc_rf,     col = "pink",   lwd = 2, add = TRUE)
+
+legend("bottomright",
+       legend = c(paste("Árbol Entropía (AUC =", round(auc(roc_entropy), 3), ")"),
+                  paste("Árbol Gini (AUC =", round(auc(roc_gini), 3), ")"),
+                  paste("Árbol Gini Podado (AUC =", round(auc(roc_gini_prune),3),")"),
+                  paste("Random Forest (AUC =", round(auc(roc_rf), 3),")")),
+       col = c("purple", "violet", "magenta","pink"),
+       lwd = 2)
+
+
+
