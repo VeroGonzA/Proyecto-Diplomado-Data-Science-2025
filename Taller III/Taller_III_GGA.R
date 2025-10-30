@@ -1,255 +1,190 @@
-##### PREGUNTA B #####
+# ==============================================================================
+# PREGUNTA D
+# ==============================================================================
 
-#Librerias
-library(readr)
-library(tidyverse)
-library(plotly)
-library(reticulate)
-library(FNN)
-install.packages("isotree")
-library(isotree)
-install.packages("dbscan")
-library(dbscan)
-install.packages("caret")
-library(caret)
+# Librerias Necesarias ----------------------------------------------------
 
-#BBDD
-bbdd <- read.csv(file.choose(), stringsAsFactors = FALSE)
-View(bbdd)
+library(DAAG)           # Dataset spam7
+library(rpart)          # Árboles de decisión
+library(rpart.plot)     # Visualización de árboles
+library(splitTools)     # Para dividir datos
+library(randomForest)   # Random Forest
+library(caret)          # Métricas de evaluación
+library(tidyverse)      # Manipulación de la bbdd
 
-#Guardar identificadores y diagnostico
-id <- bbdd$id
-diagnostico <- bbdd$diagnosis
-
-# Seleccionar solo variables numéricas
-bbdd_n <- bbdd[ , !(names(bbdd) %in% c("id", "diagnosis")) ]
-
-# 1. Distancia Mahalanobis
-cov_mat <- cov(bbdd_n)
-md <- mahalanobis(bbdd_n, colMeans(bbdd_n), cov_mat)
-summary(md)
-
-boxplot(md, main ="Distancia de Mahalanobis", ylab= "Distancia")
-
-
-# 2. Isolation Forest
-#Ajuste del Modelo
-set.seed(14)
-isoforest_m <- isolation.forest(
-  bbdd_n,
-  ntrees = 1000,
-  sample_size = "auto",
-  ndim = 1,
-  prob_pick_avg_gain = 0,
-  prob_pick_pooled_gain = 0,
-  nthreads = 1)
-
-scores_isof <- predict(isoforest_m, bbdd_n, type = "score")
-
-boxplot(scores_isof, main = "Isolation Forest", ylab="Distancia")
-
-# 3. Método LOF
-lof_scores <- lof(bbdd_n, minPts = 20)
-boxplot(lof_scores)
-
-# Incorporar los puntajes a la base
-bbdd_n$md <- md
-bbdd_n$isoforest <- scores_isof
-bbdd_n$lof <- lof_scores
-
-# Incorporar los IDs y Diagnostico desde la base original
-bbdd_n$id <- bbdd$id
-bbdd_n$diagnosis <- bbdd$diagnosis
-
-#Identificar Top 20 para cada método
-top_md <- bbdd_n %>% arrange(desc(md)) %>% slice(1:20)
-top_isof <- bbdd_n %>% arrange(desc(isoforest)) %>% slice(1:20)
-top_lof <- bbdd_n %>% arrange(desc(lof)) %>% slice(1:20)
-
-## El ejercicio pide al menos 5 IDs, con el top 10 solo tenia
-## 3 IDs, pero aumentando a un Top 20 salen 6 IDs
-
-# Extraer los IDs de cada top
-ids_md <- top_md$id
-ids_isof <- top_isof$id
-ids_lof <- top_lof$id
-
-ids_comunes <- Reduce(intersect, list(ids_md, ids_isof, ids_lof))
-print(ids_comunes)
-
-#Comparar Ids vs el resto
-variables <- c("radius_mean",
-               "perimeter_mean",
-               "texture_mean",
-               "area_mean",
-               "concavity_worst",
-               "compactness_worst",
-               "concave.points_worst")
-
-#Subconjuntos
-bbdd_id <- bbdd[bbdd$id %in% ids_comunes, variables]
-bbdd_resto <- bbdd[!(bbdd$id %in% ids_comunes), variables]
-
-#Estadisticas de cada subconjunto
-global <- data.frame(
-  variables  = variables,
-  mean     = sapply(bbdd[variables], mean, na.rm = TRUE),
-  minimum  = sapply(bbdd[variables], min,  na.rm = TRUE),
-  maximum  = sapply(bbdd[variables], max,  na.rm = TRUE)
-)
-
-outliers <- data.frame(
-  variables  = variables,
-  mean     = sapply(bbdd_id[variables], mean, na.rm = TRUE),
-  minimum  = sapply(bbdd_id[variables], min,  na.rm = TRUE),
-  maximum  = sapply(bbdd_id[variables], max,  na.rm = TRUE)
-)
-
-resto <- data.frame(
-  variables  = variables,
-  mean     = sapply(bbdd_resto[variables], mean, na.rm = TRUE),
-  minimum  = sapply(bbdd_resto[variables], min,  na.rm = TRUE),
-  maximum  = sapply(bbdd_resto[variables], max,  na.rm = TRUE)
-)
-
-# Comparación
-comparacion_bbdd <- data.frame(
-  variables        = variables,
-  mean_global    = global$mean,
-  mean_outliers  = outliers$mean,
-  mean_resto      = resto$mean,
-  min_global     = global$minimum,
-  min_outliers   = outliers$minimum,
-  min_resto       = resto$minimum,
-  max_global     = global$maximum,
-  max_outliers   = outliers$maximum,
-  max_resto      = resto$maximum
-)
-
-print(comparacion_bbdd)
-
-##### PREGUNTA C #####
-library(tidyverse)
-install.packages("PerformanceAnalytics")
-library("PerformanceAnalytics")
-
+# 1. Preparacion de Datos -------------------------------------------------
 bbdd <- read.csv(file.choose(), stringsAsFactors = FALSE)
 
-#Seleccionar variables que terminan en "_mean"
-bbdd_c <- bbdd |>
-  dplyr::select(ends_with("_mean"))
+# Cargar datos
+head(bbdd)
+str(bbdd)
 
-PerformanceAnalytics::chart.Correlation(bbdd_c, hist=TRUE, pch ="+")
+# Verificar distribución de la variable objetivo
+table(bbdd$diagnosis)
+prop.table(table(bbdd$diagnosis))
 
-# PCA
-PCA <- prcomp(bbdd_c, scale. = TRUE)
-
-# Visualización con factorextra
-install.packages("factoextra")
-library(factoextra)
-fviz_pca_biplot(
-  PCA,
-  geom.ind = "point",
-  col.ind = bbdd$diagnosis,
-  palette = c("#00AFBB", "#E7B800"),
-  addEllipses = TRUE,
-  label = "var",
-  repel = TRUE,
-  legend.title = "Diagnóstico"
-)
-
-
-##### PREGUNTA D ####
-install.packages("DAAG")
-library(DAAG)
-install.packages("splitTools")
-library(splitTools)
-library(rpart)
-install.packages("rpart.plot")
-library(rpart.plot)
-install.packages("randomForest")
-library(randomForest)
-library(pROC)
-
-# Carga de BBDD
-bbdd <- read.csv(file.choose(), stringsAsFactors = TRUE)
-
-# Etiqueta sin espacios
+# División train/test
 names(bbdd) <- gsub(" ", "_", names(bbdd))
 
-#Semilla y entrenamiento (70%) y prueba (30%)
 set.seed(2025)
-bbdd_part <- partition(1:nrow(bbdd), p = c(0.7, 0.3))
-bbdd_train <- bbdd[bbdd_part$`1`, ]
-bbdd_test <- bbdd[bbdd_part$`2`, ]
 
-# 1. ARBOL DE DECISION GINI
-# Árbol con entropía
-tree_entropy <- rpart(diagnosis ~ ., data = bbdd_train,
+bbdd_c<-bbdd |> 
+  mutate(diagnosis = factor(diagnosis, levels = c("B", "M")))
+
+
+bbdd_part <- partition(1:nrow(bbdd_c), p=c(0.7,0.3))
+train <- bbdd_c[bbdd_part$`1`,]
+test  <- bbdd_c[bbdd_part$`2`,]
+
+nrow(train)
+nrow(test)
+
+# 2. Metodos de ramificacion ----------------------------------------------
+
+## 2.1 Arbol con criterio de ENTROPIA --------------------------------------
+
+tree_entropy <- rpart(diagnosis ~ ., 
+                      data = train,
                       parms = list(split = 'information'),
                       method = "class")
+
+# Visualizar árbol
 rpart.plot(tree_entropy, main = "Árbol - Entropía")
 
-# Árbol con Gini
-tree_gini <- rpart(diagnosis ~ ., data = bbdd_train,
+# Informacion del árbol
+print(tree_entropy)
+summary(tree_entropy)
+
+
+## 2.2 Arbol con criterio de GINI ------------------------------------------
+
+tree_gini <- rpart(diagnosis ~ ., 
+                   data = train,
                    parms = list(split = 'gini'),
                    method = "class")
+
+# Visualizar árbol
 rpart.plot(tree_gini, main = "Árbol - Gini")
 
-# Árbol con poda (Gini)
-tree_gini_prune <- rpart(diagnosis ~ ., data = bbdd_train,
-                         parms = list(split = 'gini'),
-                         method = "class",
-                         control = rpart.control(cp = 0.032))
-rpart.plot(tree_gini_prune, main = "Árbol podado - Gini")
 
-# Establecer la ventana gráfica en 1 fila y 2 columnas
+# Poda del árbol
+tree_pruned <- prune(tree_gini, cp = optimal_cp)
+
+# Comparar árboles
 par(mfrow = c(1, 2))
-
-# Árbol con entropía
-rpart.plot(tree_entropy, main = "Árbol - Entropía")
-
-# Árbol con Gini
-rpart.plot(tree_gini, main = "Árbol - Gini")
-
-# Restaurar configuración gráfica por defecto
+rpart.plot(tree_gini, main = "Árbol Original")
+rpart.plot(tree_pruned, main = "Árbol Podado")
 par(mfrow = c(1, 1))
 
 
+# 3. Evaluacion de modelos ---------------------------------------------------
 
-# 2. RANDOM FOREST
+# Predicciones
+pred_entropy <- predict(tree_entropy, test, type = "class")
+pred_gini <- predict(tree_gini, test, type = "class")
+pred_pruned <- predict(tree_pruned, test, type = "class")
+
+# Métricas de evaluación
+accuracy_entropy <- mean(pred_entropy == test$diagnosis)
+accuracy_gini <- mean(pred_gini == test$diagnosis)
+accuracy_pruned <- mean(pred_pruned == test$diagnosis)
+
+# Matrices de confusión
+
+#Arbol bajo criterio de Entropia
+cm_entropy <- confusionMatrix(pred_entropy, test$diagnosis)
+print(cm_entropy)
+
+#Arbol bajo criterio de Gini
+cm_gini <- confusionMatrix(pred_gini, test$diagnosis)
+print(cm_gini)
+
+#Arbol Podado
+cm_pruned <- confusionMatrix(pred_pruned, test$diagnosis)
+print(cm_pruned)
+
+# Resumen de accuracy
+cat("\nRESUMEN DE ACCURACY:\n")
+cat("Entropía:", round(accuracy_entropy, 4), "\n")
+cat("Gini:", round(accuracy_gini, 4), "\n")
+cat("Podado:", round(accuracy_pruned, 4), "\n")
+
+
+# 4. Random Forest ---------------------------
+
+# Entrenar Random Forest
 set.seed(2025)
-rf_model <- randomForest(diagnosis ~ ., data = bbdd_train,
-                         ntree = 200, importance = TRUE)
+rf_model <- randomForest(diagnosis ~ ., 
+                         data = train,
+                         ntree = 100,
+                         importance = TRUE)
 
-# Importancia de variables
-barplot(rf_model$importance[,"MeanDecreaseAccuracy"],
-        las = 2, cex.names = 0.7,
-        main = "Importancia de variables - Random Forest")
+print(rf_model)
 
-# 3. Curva ROC y comparación AUC
-# Predicciones probabilísticas
-probs_tree <- predict(tree_gini_prune, bbdd_test, type = "prob")[, "M"]
-probs_rf   <- predict(rf_model, bbdd_test, type = "prob")[, "M"]
+# Predicciones Random Forest
+pred_rf <- predict(rf_model, test)
+accuracy_rf <- mean(pred_rf == test$diagnosis)
+accuracy_rf
 
-# Variable real
-real <- ifelse(bbdd_test$diagnosis == "M", 1, 0)
+# Matriz de confusión Random Forest
+cm_rf <- confusionMatrix(pred_rf, test$diagnosis)
+print(cm_rf)
 
-# Curvas ROC
-roc_tree <- roc(real, probs_tree)
-roc_rf   <- roc(real, probs_rf)
+
+# 5. Importancia de Variables ---------------------------------------------
+
+# Obtener importancia
+importance_data <- importance(rf_model)
+print(importance_data)
+
+# Gráfico de importancia
+varImpPlot(rf_model, main = "Importancia de Variables - Random Forest")
+
+# Gráfico de barras personalizado
+
+barplot(rf_model$importance[,'MeanDecreaseAccuracy'],
+        names.arg=names(rf_model$importance[,'MeanDecreaseAccuracy']))
+
+
+# 6. Comparacion Final de Modelos -----------------------------------------
+
+# Crear tabla comparativa
+results <- data.frame(
+  Modelo = c("Árbol Entropía", "Árbol Gini", "Árbol Podado", "Random Forest"),
+  Accuracy = c(accuracy_entropy, accuracy_gini, accuracy_pruned, accuracy_rf),
+  stringsAsFactors = FALSE
+)
+
+print(results)
+
+# 7. Curva ROC -----------------------------------------#
+
+test$diagnosis <- factor(test$diagnosis, levels = c("B", "M"))
+
+# Obtener probabilidades para clase "M"
+prob_entropy <- predict(tree_entropy, test, type = "prob")[, "M"]
+prob_gini <- predict(tree_gini, test, type = "prob")[, "M"]
+prob_pruned <- predict(tree_pruned, test, type = "prob")[, "M"]
+prob_rf <- predict(rf_model, test, type = "prob")[, "M"]
+
+# Calcular curvas ROC
+roc_entropy <- roc(response = test$diagnosis, predictor = prob_entropy, levels = c("B", "M"), direction = "<")
+roc_gini <- roc(response = test$diagnosis, predictor = prob_gini, levels = c("B", "M"), direction = "<")
+roc_pruned <- roc(response = test$diagnosis, predictor = prob_pruned, levels = c("B", "M"), direction = "<")
+roc_rf <- roc(response = test$diagnosis, predictor = prob_rf, levels = c("B", "M"), direction = "<")
 
 # Graficar curvas ROC
-plot(roc_tree, col = "blue", main = "Curvas ROC - Árbol vs Random Forest")
-plot(roc_rf, col = "red", add = TRUE)
-legend("bottomright", legend = c("Árbol de decisión", "Random Forest"),
-       col = c("blue", "red"), lwd = 2)
+plot(roc_entropy, col = "#3B0270", lwd = 2, main = "Curvas ROC comparadas")
+plot(roc_gini, col = "#DF42D1", lwd = 2, add = TRUE)
+plot(roc_pruned, col = "#EEA5F6", lwd = 2, add = TRUE)
+plot(roc_rf, col = "#6F00FF", lwd = 2, add = TRUE)
 
-# AUC
-auc_tree <- auc(roc_tree)
-auc_rf <- auc(roc_rf)
-
-cat("AUC Árbol de decisión:", round(auc_tree, 3), "\n")
-cat("AUC Random Forest:", round(auc_rf, 3), "\n")
-
+# Leyenda con AUC
+legend("bottomright",
+       legend = c(paste("Árbol Entropía (AUC =", round(auc(roc_entropy), 3), ")"),
+                  paste("Árbol Gini (AUC =", round(auc(roc_gini), 3), ")"),
+                  paste("Árbol Podado (AUC =", round(auc(roc_pruned), 3), ")"),
+                  paste("Random Forest (AUC =", round(auc(roc_rf), 3), ")")),
+       col = c("#3B0270", "#DF42D1", "#EEA5F6", "#6F00FF"),
+       lwd = 3)
 
