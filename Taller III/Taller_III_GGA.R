@@ -142,10 +142,16 @@ print(importance_data)
 varImpPlot(rf_model, main = "Importancia de Variables - Random Forest")
 
 # Gráfico de barras personalizado
+importancias <- importance_data[ , "MeanDecreaseAccuracy"]
+importancias_ord <- sort(importancias, decreasing = TRUE)
 
-barplot(rf_model$importance[,'MeanDecreaseAccuracy'],
-        names.arg = names(rf_model$importance[,'MeanDecreaseAccuracy']))
-
+barplot(importancias_ord,
+       names.arg = names(importancias_ord),
+       las = 3,
+       cex.names = 0.75,  
+       main = "Importancia de Variables - MeanDecreaseAccuracy",
+       ylab = "MeanDecreaseAccuracy",
+       ylim = c(0, max(importancias_ord) * 1.12))
 
 # 6. Comparacion Final de Modelos -----------------------------------------
 
