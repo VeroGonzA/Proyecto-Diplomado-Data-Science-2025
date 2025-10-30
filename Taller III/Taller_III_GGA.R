@@ -54,7 +54,6 @@ rpart.plot(tree_entropy, main = "Árbol - Entropía")
 print(tree_entropy)
 summary(tree_entropy)
 
-
 ## 2.2 Arbol con criterio de GINI ------------------------------------------
 
 tree_gini <- rpart(diagnosis ~ ., 
@@ -67,7 +66,10 @@ rpart.plot(tree_gini, main = "Árbol - Gini")
 
 
 # Poda del árbol
-tree_pruned <- prune(tree_gini, cp = optimal_cp)
+tree_pruned <- rpart(diagnosis ~ ., data = train,
+                         parms = list(split = 'gini'),
+                         method = "class",
+                         control = rpart.control(cp = 0.032))
 
 # Comparar árboles
 par(mfrow = c(1, 2))
@@ -142,7 +144,7 @@ varImpPlot(rf_model, main = "Importancia de Variables - Random Forest")
 # Gráfico de barras personalizado
 
 barplot(rf_model$importance[,'MeanDecreaseAccuracy'],
-        names.arg=names(rf_model$importance[,'MeanDecreaseAccuracy']))
+        names.arg = names(rf_model$importance[,'MeanDecreaseAccuracy']))
 
 
 # 6. Comparacion Final de Modelos -----------------------------------------
@@ -167,6 +169,9 @@ prob_pruned <- predict(tree_pruned, test, type = "prob")[, "M"]
 prob_rf <- predict(rf_model, test, type = "prob")[, "M"]
 
 # Calcular curvas ROC
+
+library(pROC)
+
 roc_entropy <- roc(response = test$diagnosis, predictor = prob_entropy, levels = c("B", "M"), direction = "<")
 roc_gini <- roc(response = test$diagnosis, predictor = prob_gini, levels = c("B", "M"), direction = "<")
 roc_pruned <- roc(response = test$diagnosis, predictor = prob_pruned, levels = c("B", "M"), direction = "<")
@@ -186,5 +191,3 @@ legend("bottomright",
                   paste("Random Forest (AUC =", round(auc(roc_rf), 3), ")")),
        col = c("#3B0270", "#DF42D1", "#EEA5F6", "#6F00FF"),
        lwd = 3)
-
-
