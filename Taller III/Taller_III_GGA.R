@@ -4,7 +4,6 @@
 
 # Librerias Necesarias ----------------------------------------------------
 
-library(DAAG)           # Dataset spam7
 library(rpart)          # Árboles de decisión
 library(rpart.plot)     # Visualización de árboles
 library(splitTools)     # Para dividir datos
@@ -187,4 +186,5 @@ legend("bottomright",
                   paste("Random Forest (AUC =", round(auc(roc_rf), 3), ")")),
        col = c("#3B0270", "#DF42D1", "#EEA5F6", "#6F00FF"),
        lwd = 3)
+
 
