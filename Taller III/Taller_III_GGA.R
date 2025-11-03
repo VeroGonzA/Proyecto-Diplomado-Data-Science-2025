@@ -65,11 +65,28 @@ tree_gini <- rpart(diagnosis ~ .,
 rpart.plot(tree_gini, main = "Árbol - Gini")
 
 
+# 3. Analisis de CP -------------------------------------------------------
+
+# Mostrar tabla de complejidad
+printcp(tree_gini)
+
+# Gráfico de complejidad
+plotcp(tree_gini)
+
+# Obtener CP óptimo (regla 1-SE)
+cp_table <- tree_gini$cptable
+min_error_index <- which.min(cp_table[, "xerror"])
+min_error <- cp_table[min_error_index, "xerror"]
+min_std <- cp_table[min_error_index, "xstd"]
+
+# CP óptimo según regla 1-SE
+optimal_cp_index <- which(cp_table[, "xerror"] <= min_error + min_std)[1]
+optimal_cp <- cp_table[optimal_cp_index, "CP"]
+
+cat("CP óptimo (regla 1-SE):", optimal_cp, "\n")
+
 # Poda del árbol
-tree_pruned <- rpart(diagnosis ~ ., data = train,
-                         parms = list(split = 'gini'),
-                         method = "class",
-                         control = rpart.control(cp = 0.032))
+tree_pruned <- prune(tree_gini, cp = optimal_cp)
 
 # Comparar árboles
 par(mfrow = c(1, 2))
@@ -77,8 +94,7 @@ rpart.plot(tree_gini, main = "Árbol Original")
 rpart.plot(tree_pruned, main = "Árbol Podado")
 par(mfrow = c(1, 1))
 
-
-# 3. Evaluacion de modelos ---------------------------------------------------
+# 4. Evaluacion de modelos ---------------------------------------------------
 
 # Predicciones
 pred_entropy <- predict(tree_entropy, test, type = "class")
@@ -111,7 +127,7 @@ cat("Gini:", round(accuracy_gini, 4), "\n")
 cat("Podado:", round(accuracy_pruned, 4), "\n")
 
 
-# 4. Random Forest ---------------------------
+# 5. Random Forest ---------------------------
 
 # Entrenar Random Forest
 set.seed(2025)
@@ -132,7 +148,7 @@ cm_rf <- confusionMatrix(pred_rf, test$diagnosis)
 print(cm_rf)
 
 
-# 5. Importancia de Variables ---------------------------------------------
+# 6. Importancia de Variables ---------------------------------------------
 
 # Obtener importancia
 importance_data <- importance(rf_model)
@@ -146,14 +162,14 @@ importancias <- importance_data[ , "MeanDecreaseAccuracy"]
 importancias_ord <- sort(importancias, decreasing = TRUE)
 
 barplot(importancias_ord,
-       names.arg = names(importancias_ord),
-       las = 3,
-       cex.names = 0.75,  
-       main = "Importancia de Variables - MeanDecreaseAccuracy",
-       ylab = "MeanDecreaseAccuracy",
-       ylim = c(0, max(importancias_ord) * 1.12))
+        names.arg = names(importancias_ord),
+        las = 3,
+        cex.names = 0.75,  
+        main = "Importancia de Variables - MeanDecreaseAccuracy",
+        ylab = "MeanDecreaseAccuracy",
+        ylim = c(0, max(importancias_ord) * 1.12))
 
-# 6. Comparacion Final de Modelos -----------------------------------------
+# 7. Comparacion Final de Modelos -----------------------------------------
 
 # Crear tabla comparativa
 results <- data.frame(
