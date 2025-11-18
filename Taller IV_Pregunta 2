@@ -1,0 +1,224 @@
+#### Librerias y datos
+library(geoR)  # Espacial
+library(gstat) # Espacial y Espacio-temporal
+library(GeoModels) # Modelos No-Gaussianos y es util par agrandes conjuntos de datos
+
+bbdd <- geoR::camg
+head(bbdd)
+?camg
+
+plot(bbdd$east, bbdd$north)
+hist(bbdd$mg020)
+
+#### Pregunta 1: Formato #### 
+
+geo_bbdd <- as.geodata(bbdd, coords.col=1:2, data.col=6)
+geo_bbdd
+
+#### Pregunta 2: Parte descriptiva #### 
+
+# Los datos no se ven tan concentrados
+plot(geo_bbdd)
+
+##### 2A: Es posible que existan valores atipicos #####  
+qqnorm(bbdd$mg020)
+qqline(bbdd$mg020, col=2)
+shapiro.test(bbdd$mg020)
+
+##### 2C: Dado la normalidad no es necesario aplicar Box-Cox ##### 
+
+##### 2B: Es posible que existan valores atipicos #####
+# Gráfico de dispersión espacial > OPCIONAL PARA TENER UN ZOOM.
+library(ggplot2)
+library(viridis)
+
+ggplot(bbdd, aes(x = east, y = north, color = mg020)) +
+  geom_point(size = 4) +  # Tamaño de los puntos
+  scale_color_viridis(option = "viridis", direction = 1) +  # Morado a amarillo
+  labs(title = "Dispersión espacial de mg020",
+       x = "East",
+       y = "North",
+       color = "mg020") +
+  theme_minimal()
+
+(hmax=max(dist(geo_bbdd$coords))) #distancia maxima 1138.1
+
+vario1 <- variog(geo_bbdd, max.dist = hmax/2)
+vario2 <- variog(geo_bbdd, max.dist=hmax/2, estimator.type="modulus") #Si hay outlier o no
+
+
+vario1_1st <- variog(geo_bbdd, max.dist=hmax/2, trend="1st")
+vario2_1st <- variog(geo_bbdd, max.dist=hmax/2, trend="1st",
+                     estimator.type="modulus")
+
+par(mfrow=c(2,2))
+plot(vario1, main="Clasico con tendencia constante") 
+plot(vario2, main="Modulus con tendencia constante") 
+plot(vario1_1st, main="Clasico con tendencia lineal") 
+plot(vario2_1st, main="Modulus con tendencia lineal") 
+par(mfrow=c(2,2))
+
+
+# ¿En que nos fijamos de este gráfico?
+# En todos los graficos se ve una tendencia al alza
+# En este caso nos quedariamos con una tendencia constante
+# y que la covarianza se encargue de explicar el modelo
+
+#### Pregunta 3: Variograma Clásico ####
+
+# Calcular distancia máxima
+# La recomendación es que no sea max que la distancia max medios
+(hmax=max(dist(geo_bbdd$coords))) #distancia maxima 1138.1
+
+# Calcular variograma empírico
+vario_emp <- variog(geo_bbdd, max.dist = hmax / 2)
+plot(vario_emp, main="Clasico con tendencia constante")
+
+# Estimar parámetros
+nugget <- vario_emp$v[1]
+sill <- vario_emp$v[length(vario_emp$v)]
+ind <- which(vario_emp$v >= 0.95 * sill)[1]
+rangeH <- if (!is.na(ind)) vario_emp$u[ind] else vario_emp$u[length(vario_emp$u)]
+
+# Graficar en el variograma
+plot(vario_emp, main = "Variograma Clásico con tendencia cte de mg020 con parámetros estimados", pch = 20)
+abline(h = nugget, col = "darkgreen", lty = 1)
+abline(h = sill, col = "red", lty = 1)
+abline(v = rangeH, col = "blue", lty = 1)
+legend("bottomright",
+       legend = c(paste0("Nugget = ", round(nugget, 2)),
+                  paste0("Sill = ", round(sill, 2)),
+                  paste0("Range = ", round(rangeH, 2))),
+       col = c("darkgreen", "red", "blue"), lty = 1, bty = "n")
+
+
+
+#### Pregunta 4: Ajuste de modelos por máxima verosimilitud #### 
+
+#Parametros iniciales
+nugget_ini <- 21.86
+sill_total <- 45.52
+sill_parcial <- sill_total - nugget_ini
+range_ini <- 415.84
+
+# Ajustar modelos con tendencia constante
+
+fit_exp_cte <- likfit(geo_bbdd, trend = "cte", 
+                      cov.model = "exponential",
+                      ini.cov.pars = c(sill_parcial, range_ini), 
+                      nugget = nugget_ini)
+
+fit_mat_cte <- likfit(geo_bbdd, trend = "cte", 
+                      cov.model = "matern", kappa = 1.5,
+                      ini.cov.pars = c(sill_parcial, range_ini), 
+                      nugget = nugget_ini)
+
+fit_nug_cte <- likfit(geo_bbdd, trend = "cte",
+                      cov.model = "pure.nugget",
+                      ini.cov.pars = c(var(geo_bbdd$data), 0))
+
+# Ajustar modelos con tendencia lineal
+fit_exp_lin <- likfit(geo_bbdd, trend = "1st", 
+                      cov.model = "exponential",
+                      ini.cov.pars = c(sill_parcial, range_ini), 
+                      nugget = nugget_ini)
+
+
+fit_mat_lin <- likfit(geo_bbdd, trend = "1st", 
+                      cov.model = "matern", kappa = 1.5,
+                      ini.cov.pars = c(sill_parcial, range_ini), 
+                      nugget = nugget_ini)
+
+fit_nug_lin <- likfit(geo_bbdd, trend = "1st",
+                      cov.model = "pure.nugget",
+                      ini.cov.pars = c(var(geo_bbdd$data), 0))
+# AIC
+aic_table <- data.frame(
+  Modelo = c("Exponencial", "Matern", "Exponencial", "Matern", "No espacial", "No espacial"),
+  Tendencia = c("Constante", "Constante", "Lineal", "Lineal", "Constante", "Lineal"),
+  AIC = c(AIC(fit_exp_cte), AIC(fit_mat_cte),
+          AIC(fit_exp_lin), AIC(fit_mat_lin),
+          AIC(fit_nug_cte), AIC(fit_nug_lin))
+)
+
+# Resumen AIC
+aic_table <- aic_table[order(aic_table$AIC), ]
+print(aic_table)
+
+
+# Graficar variograma empírico con modelos ajustados
+vario_emp <- variog(geo_bbdd)
+plot(vario_emp, main = "Variograma empírico y modelos ajustados", pch = 20)
+lines(fit_exp_cte, col = "blue")
+lines(fit_mat_cte, col = "red")
+lines(fit_nug_cte, col = "green")
+legend("bottomright", legend = c("Exponencial", "Matern", "No espacial"),
+       col = c("blue", "red", "green"), lty = 1, bty = "n")
+
+
+#### Pregunta 5: KRIGING #####
+
+# Definir una malla de predicción
+pred_grid <- expand.grid(
+  east = seq(min(bbdd$east), max(bbdd$east), length.out = 60),
+  north = seq(min(bbdd$north), max(bbdd$north), length.out = 60)
+)
+
+# Realizar kriging ordinario
+kriging_result <- krige.conv(geo_bbdd,
+                             locations = pred_grid,
+                             krige = krige.control(
+                               type.krige = "ok",
+                               trend.d = "cte",
+                               trend.l = "cte",
+                               cov.model = "exponential",
+                               cov.pars = c(sill_parcial, range_ini),
+                               nugget = nugget_ini
+                             ))
+
+# Graficar predicción del kriging
+
+par(mfrow=c(1,2))
+image(kriging_result, main = "Predicción por Kriging", 
+      col = terrain.colors(50),
+      xlab = "East", ylab = "North",
+      nlevels = 16)
+points(geo_bbdd$coords, pch = 20, cex = 0.6)
+
+# Graficar varianza del kriging
+image(kriging_result, val = kriging_result$krige.var,
+      main = "Varianza del Kriging", 
+      col = heat.colors(50),
+      xlab = "East", ylab = "North")
+points(geo_bbdd$coords, pch = 20, cex = 0.6)
+
+
+######## REVISAR #########
+# Instalar y cargar el paquete fields si no lo tienes
+install.packages("fields")  # solo si es necesario
+library(fields)
+
+# Crear grilla de coordenadas
+x <- unique(kriging_result$coords[,1])
+y <- unique(kriging_result$coords[,2])
+
+# Convertir resultados a matriz
+z_pred <- matrix(kriging_result$predicted, nrow = length(x), ncol = length(y))
+z_var  <- matrix(kriging_result$krige.var, nrow = length(x), ncol = length(y))
+
+# Graficar con escala de colores
+par(mfrow = c(1, 2))
+
+# Predicción
+image.plot(x, y, z_pred,
+           main = "Predicción por Kriging",
+           col = terrain.colors(50),
+           xlab = "East", ylab = "North")
+points(geo_bbdd$coords, pch = 20, cex = 0.6)
+
+# Varianza
+image.plot(x, y, z_var,
+           main = "Varianza del Kriging",
+           col = heat.colors(50),
+           xlab = "East", ylab = "North")
+points(geo_bbdd$coords, pch = 20, cex = 0.6)
